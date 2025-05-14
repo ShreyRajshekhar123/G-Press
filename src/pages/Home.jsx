@@ -1,6 +1,7 @@
 import { auth } from "../firebase";
 import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
+import NewsTabs from "../components/NewsTabs";
 
 export default function Home() {
   const navigate = useNavigate();
@@ -27,10 +28,7 @@ export default function Home() {
         👋 Welcome! Select a newspaper tab to view the latest headlines.
       </p>
 
-      {/* Placeholder for upcoming features */}
-      <div className="border border-gray-700 rounded-lg p-6 text-center text-gray-400">
-        Your newspaper tabs and news cards will be displayed here.
-      </div>
+      <NewsTabs />
     </div>
   );
 }
