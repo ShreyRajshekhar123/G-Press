@@ -3,7 +3,11 @@ import axios from "axios";
 
 const newspapers = [
   { id: "hindu", name: "The Hindu" },
+<<<<<<< HEAD:global_press/src/components/NewsTabs.jsx
   { id: "hindustan-times", name: "Hindustan Times" },
+=======
+  { id: "ht", name: "Hindustan Times" },
+>>>>>>> 409c0aa83d05f3892a88266de6b624c86731f2e6:src/components/NewsTabs.jsx
   { id: "toi", name: "Times of India" },
   { id: "ie", name: "Indian Express" },
   { id: "dna", name: "DNA India" },
