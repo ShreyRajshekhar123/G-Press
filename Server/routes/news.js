@@ -1,14 +1,16 @@
+// C:\Users\OKKKK\Desktop\G-Press\G-Press\Server\routes\news.js
+
 const express = require("express");
 const router = express.Router();
-const { spawn } = require("child_process");
+const { spawn } = require("child_process"); // Still needed for the /:source/run API route
 
 // Import all your news models
-// !!! IMPORTANT: Ensure these paths and casing match your actual filenames in Server/models/ !!!
-const Hindu = require("../models/TheHindu");
-const HindustanTimes = require("../models/HindustanTimes");
-const TimesOfIndia = require("../models/TimesOfIndia");
-const IndianExpress = require("../models/IndianExpress");
-const Dna = require("../models/DNA");
+// IMPORTANT: Ensure these paths and casing match your actual filenames in Server/models/ !!!
+const Hindu = require("../models/thehindu"); // Corrected to lowercase 'thehindu' based on common practice
+const HindustanTimes = require("../models/hindustantimes"); // Corrected to lowercase
+const TimesOfIndia = require("../models/timesofindia"); // Corrected to lowercase
+const IndianExpress = require("../models/indianexpress"); // Corrected to lowercase
+const Dna = require("../models/dna"); // Corrected to lowercase
 
 // Centralized mapping for models and scraper scripts
 // The keys (e.g., 'ie', 'dna') MUST match the slugs you'll use in your frontend URLs and buttons.
@@ -16,27 +18,27 @@ const sourceConfig = {
   ie: {
     // Indian Express
     model: IndianExpress,
-    scriptPath: "scrapers/indian_express.py", // Corrected based on screenshot
+    scriptPath: "indian_express.py", // Assuming direct file name in 'scrapers' folder
   },
   dna: {
     // DNA India
     model: Dna,
-    scriptPath: "scrapers/dna_scraper.py", // Corrected based on screenshot
+    scriptPath: "dna_scraper.py",
   },
   hindu: {
     // The Hindu
     model: Hindu,
-    scriptPath: "scrapers/hindu_scraper.py", // Corrected based on screenshot
+    scriptPath: "hindu_scraper.py", // Double-check this matches your file (e.g., 'the_hindu.py'?)
   },
   "hindustan-times": {
     // Hindustan Times (note the hyphen)
     model: HindustanTimes,
-    scriptPath: "scrapers/hindustan_scraper.py", // Corrected based on screenshot
+    scriptPath: "hindustan_scraper.py",
   },
   toi: {
     // Times of India
     model: TimesOfIndia,
-    scriptPath: "scrapers/times_of_india_scraper.py", // Corrected based on screenshot
+    scriptPath: "times_of_india_scraper.py",
   },
   // Add more sources here if you expand your scrapers later
 };
@@ -55,7 +57,7 @@ router.get("/:source", async (req, res) => {
 
     const Model = config.model;
     // Fetch latest 20 articles, sorted by creation date (newest first)
-    // Assumes your models have a 'createdAt' field with 'default: Date.now'
+    // Assumes your models have a 'createdAt' field (from { timestamps: true })
     const articles = await Model.find().sort({ createdAt: -1 }).limit(20);
     console.log(`Workspaceed ${articles.length} articles from ${source}`);
     res.json({ source, articles }); // Respond with an object containing source and articles
@@ -69,6 +71,8 @@ router.get("/:source", async (req, res) => {
 
 // Route to trigger scraper for a given source (your existing scraper logic)
 // Example usage: GET /api/news/ie/run or /api/news/dna/run
+// NOTE: This API route will now be less critical as cron job handles auto-scraping
+// but useful for manual triggers or debugging.
 router.get("/:source/run", (req, res) => {
   const source = req.params.source.toLowerCase(); // Ensure lowercase for consistent lookup
   const config = sourceConfig[source];
@@ -86,7 +90,10 @@ router.get("/:source/run", (req, res) => {
     `Attempting to run scraper for source: ${source} using script: ${scriptPath}`
   );
 
-  const pythonProcess = spawn("python", [scriptPath]);
+  // Construct full path for spawn
+  const fullScriptPath = `./scrapers/${scriptPath}`; // Correct relative path from routes/news.js
+
+  const pythonProcess = spawn("python", [fullScriptPath]);
 
   let data = ""; // Accumulates stdout from the Python script
   let errorOutput = ""; // Accumulates stderr from the Python script
@@ -144,9 +151,10 @@ router.get("/:source/run", (req, res) => {
       let newlyInsertedCount = 0; // Initialize a counter for newly inserted articles
       if (validArticles.length > 0) {
         try {
-          // Mongoose will attempt to insert only unique documents due to unique: true on 'link'
+          // Delete existing articles for this source before inserting new ones (for this manual run)
+          await Model.deleteMany({}); // <-- CAUTION: This clears the collection!
           const insertedDocs = await Model.insertMany(validArticles, {
-            ordered: false,
+            ordered: false, // Continue inserting even if some fail (e.g., duplicates)
           });
           newlyInsertedCount = insertedDocs.length;
           console.log(
@@ -166,13 +174,9 @@ router.get("/:source/run", (req, res) => {
             console.warn(
               `[${source} Scraper] Some articles for ${source} may have been duplicates or failed validation.`
             );
-            // Count successfully inserted documents from the error object if available
             if (insertError.insertedDocs) {
               newlyInsertedCount = insertError.insertedDocs.length;
             }
-            console.log(
-              `[${source} Scraper] Successfully inserted ${newlyInsertedCount} new articles into MongoDB for ${source} (duplicates prevented).`
-            );
           } else {
             console.error(
               `[${source} Scraper] Unexpected InsertMany error for ${source}:`,
@@ -242,3 +246,4 @@ router.get("/all", async (req, res) => {
 });
 
 module.exports = router;
+module.exports.sourceConfig = sourceConfig; // <--- NEW: Export sourceConfig here!

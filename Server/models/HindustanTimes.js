@@ -1,9 +1,12 @@
 const mongoose = require("mongoose");
 
-const articleSchema = new mongoose.Schema({
-  title: String,
-  link: String,
-  createdAt: { type: Date, default: Date.now }
-});
+const articleSchema = new mongoose.Schema(
+  {
+    title: String,
+    link: String,
+    createdAt: { type: Date, default: Date.now },
+  },
+  { timestamps: true }
+);
 
 module.exports = mongoose.model("HindustanTimes", articleSchema);
