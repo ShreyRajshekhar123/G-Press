@@ -1,37 +1,15 @@
-// const express = require("express");
-// const cors = require("cors");
-// const mongoose = require("mongoose");
-// const newsRoutes = require("./routes/news");
-
-// const app = express();
-// const PORT = 5000;
-
-// app.use(cors());
-// app.use(express.json()); // ✅ Needed for JSON POST requests
-
-// app.use("/api/news", newsRoutes);
-
-// mongoose
-//   .connect("mongodb://127.0.0.1:27017/gpress")
-//   .then(() => {
-//     console.log("✅ Connected to MongoDB");
-//   })
-//   .catch((err) => {
-//     console.error("❌ MongoDB connection error:", err);
-//   });
-
-// app.listen(PORT, () => {
-//   console.log(`✅ Server running at http://localhost:${PORT}`);
-// });
+// C:\Users\OKKKK\Desktop\G-Press\G-Press\Server\index.js
 
 const express = require("express");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
+const cors = require("cors"); // <--- ADD THIS LINE: Import the cors package
 const newsRoutes = require("./routes/news"); // adjust path if different
 
 const app = express();
 
 app.use(bodyParser.json());
+app.use(cors()); // <--- ADD THIS LINE: Enable CORS for all routes
 
 // Connect to MongoDB (make sure this matches your config)
 mongoose

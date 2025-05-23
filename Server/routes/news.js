@@ -1,117 +1,102 @@
 const express = require("express");
 const router = express.Router();
 const { spawn } = require("child_process");
-const mongoose = require("mongoose");
 
+// Import all your news models
+// !!! IMPORTANT: Ensure these paths and casing match your actual filenames in Server/models/ !!!
 const Hindu = require("../models/TheHindu");
-const HindustanTimes = require("../models/hindustanTimes");
-const TimesOfIndia = require("../models/timesOfIndia");
-const IndianExpress = require("../models/indianExpress");
-const Dna = require("../models/dna");
+const HindustanTimes = require("../models/HindustanTimes");
+const TimesOfIndia = require("../models/TimesOfIndia");
+const IndianExpress = require("../models/IndianExpress");
+const Dna = require("../models/DNA");
 
-const modelMap = {
-  hindu: Hindu,
-  "hindustan-times": HindustanTimes,
-  toi: TimesOfIndia,
-  ie: IndianExpress,
-  dna: Dna,
+// Centralized mapping for models and scraper scripts
+// The keys (e.g., 'ie', 'dna') MUST match the slugs you'll use in your frontend URLs and buttons.
+const sourceConfig = {
+  ie: {
+    // Indian Express
+    model: IndianExpress,
+    scriptPath: "scrapers/indian_express.py", // Corrected based on screenshot
+  },
+  dna: {
+    // DNA India
+    model: Dna,
+    scriptPath: "scrapers/dna_scraper.py", // Corrected based on screenshot
+  },
+  hindu: {
+    // The Hindu
+    model: Hindu,
+    scriptPath: "scrapers/hindu_scraper.py", // Corrected based on screenshot
+  },
+  "hindustan-times": {
+    // Hindustan Times (note the hyphen)
+    model: HindustanTimes,
+    scriptPath: "scrapers/hindustan_scraper.py", // Corrected based on screenshot
+  },
+  toi: {
+    // Times of India
+    model: TimesOfIndia,
+    scriptPath: "scrapers/times_of_india_scraper.py", // Corrected based on screenshot
+  },
+  // Add more sources here if you expand your scrapers later
 };
 
-// Generic route to get latest 20 articles from a source
+// Route to get latest 20 articles from a specific source
+// Example usage: GET /api/news/ie or /api/news/hindu
 router.get("/:source", async (req, res) => {
   try {
-    const source = req.params.source;
-    const model = modelMap[source];
+    const source = req.params.source.toLowerCase(); // Ensure lowercase for consistent lookup
+    const config = sourceConfig[source];
 
-    if (!model) {
+    if (!config || !config.model) {
       console.warn(`Attempted to fetch from invalid source: ${source}`);
-      return res.status(400).json({ error: "Invalid source" });
+      return res.status(400).json({ error: "Invalid news source provided." });
     }
 
-    const articles = await model.find().sort({ _id: -1 }).limit(20);
+    const Model = config.model;
+    // Fetch latest 20 articles, sorted by creation date (newest first)
+    // Assumes your models have a 'createdAt' field with 'default: Date.now'
+    const articles = await Model.find().sort({ createdAt: -1 }).limit(20);
     console.log(`Workspaceed ${articles.length} articles from ${source}`);
-    res.json({ source, articles });
+    res.json({ source, articles }); // Respond with an object containing source and articles
   } catch (error) {
     console.error(`Error fetching articles from ${req.params.source}:`, error);
-    res.status(500).json({ error: "Internal Server Error" });
+    res
+      .status(500)
+      .json({ error: "Internal Server Error", details: error.message });
   }
 });
 
-// Generic route to insert articles into the database for a source
-router.post("/:source", async (req, res) => {
-  try {
-    const source = req.params.source;
-    const model = modelMap[source];
-
-    if (!model) {
-      console.warn(`Attempted to post to invalid source: ${source}`);
-      return res.status(400).json({ error: "Invalid source" });
-    }
-
-    const articles = req.body.articles;
-    if (!Array.isArray(articles)) {
-      console.error(`Invalid articles format for ${source}: Expected array.`);
-      return res.status(400).json({ error: "Invalid articles format" });
-    }
-    console.log(`Received ${articles.length} articles for POST to ${source}.`);
-
-    const insertedArticles = await model
-      .insertMany(articles, { ordered: false }) // ordered: false means it will continue on duplicates
-      .catch((err) => {
-        console.error(
-          `Insert error for ${source} (some may be duplicates):`,
-          err.message
-        );
-        // If there's an error, it might be due to all being duplicates, return empty array
-        return [];
-      });
-
-    console.log(
-      `Successfully inserted ${insertedArticles.length} articles into ${source}.`
-    );
-    res.json({ message: "Articles inserted successfully", insertedArticles });
-  } catch (error) {
-    console.error(`Error inserting articles for ${req.params.source}:`, error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
-
-// Generic route to run scraper for a given source
+// Route to trigger scraper for a given source (your existing scraper logic)
+// Example usage: GET /api/news/ie/run or /api/news/dna/run
 router.get("/:source/run", (req, res) => {
-  const source = req.params.source;
-  const scriptMap = {
-    hindu: "scrapers/hindu_scraper.py", // Changed from scripts/ to scrapers/
-    "hindustan-times": "scrapers/hindustan_scraper.py", // Changed
-    toi: "scrapers/times_of_india_scraper.py", // Note: Your file is times_of_india_scraper.py, not toi_scraper.py
-    ie: "scrapers/indian_express.py", // Changed
-    dna: "scrapers/dna_scraper.py", // Changed
-  };
+  const source = req.params.source.toLowerCase(); // Ensure lowercase for consistent lookup
+  const config = sourceConfig[source];
 
-  const scriptPath = scriptMap[source];
-
-  if (!scriptPath) {
+  if (!config || !config.scriptPath || !config.model) {
     console.warn(`Attempted to run scraper for invalid source: ${source}`);
-    return res.status(400).json({ error: "Invalid source" });
+    return res
+      .status(400)
+      .json({ error: "Invalid news source or script configuration." });
   }
+
+  const { model: Model, scriptPath } = config; // Destructure Model and scriptPath from config
 
   console.log(
     `Attempting to run scraper for source: ${source} using script: ${scriptPath}`
   );
 
-  // Use 'python' or 'python3' based on your system setup
-  // You might need to specify the full path if 'python' isn't in your PATH
   const pythonProcess = spawn("python", [scriptPath]);
 
   let data = ""; // Accumulates stdout from the Python script
-  let error = ""; // Accumulates stderr from the Python script
+  let errorOutput = ""; // Accumulates stderr from the Python script
 
   pythonProcess.stdout.on("data", (chunk) => {
     data += chunk.toString();
-    // console.log(`[${source} Scraper stdout chunk]:`, chunk.toString()); // Uncomment for very verbose logging
   });
 
   pythonProcess.stderr.on("data", (chunk) => {
-    error += chunk.toString();
+    errorOutput += chunk.toString();
     console.error(`[${source} Scraper stderr]:`, chunk.toString()); // Always log stderr for debugging
   });
 
@@ -122,10 +107,12 @@ router.get("/:source/run", (req, res) => {
       console.error(
         `[${source} Scraper] Scraper process failed for ${source}.`
       );
-      console.error(`[${source} Scraper] Full stderr output:\n${error}`);
+      console.error(
+        `[<span class="math-inline">\{source\} Scraper\] Full stderr output\:\\n</span>{errorOutput}`
+      );
       return res.status(500).json({
         error: "Scraper failed",
-        details: error || "No error output from scraper.",
+        details: errorOutput || "No error output from scraper.",
       });
     }
 
@@ -133,55 +120,80 @@ router.get("/:source/run", (req, res) => {
       console.log(
         `[${source} Scraper] Attempting to parse JSON output. Data length: ${data.length}`
       );
-      // console.log(`[${source} Scraper] Full raw stdout data:\n${data}`); // Uncomment to see the full raw output
 
-      const articles = JSON.parse(data);
-      console.log(
-        `[${source} Scraper] Successfully parsed ${articles.length} articles from scraper output.`
-      );
+      const scrapedArticles = JSON.parse(data);
 
-      const model = modelMap[source]; // Get the Mongoose model for the source
-
-      const filtered = articles.filter(
-        (article) => article.title && article.link // Ensure articles have title and link
-      );
-      console.log(
-        `[${source} Scraper] Filtered articles (title and link present): ${filtered.length}`
-      );
-
-      if (filtered.length === 0) {
-        console.warn(
-          `[${source} Scraper] No valid articles to insert after filtering.`
-        );
-        return res.json({
-          message:
-            "Scraped successfully, but no valid articles found to store.",
-          count: 0,
-          articles: [],
+      if (!Array.isArray(scrapedArticles)) {
+        return res.status(500).json({
+          error: "Failed to parse scraper output",
+          details: "Scraper output is not a JSON array.",
         });
       }
 
-      const inserted = await model
-        .insertMany(filtered, { ordered: false })
-        .catch((err) => {
-          // err.message will often contain "E11000 duplicate key error collection" if unique index is hit
-          console.error(
-            `[${source} Scraper] InsertMany error for ${source}: ${err.message}`
-          );
-          console.warn(
-            `[${source} Scraper] Some articles for ${source} may have been duplicates or failed validation.`
-          );
-          // If all are duplicates, err.result.nInserted will be 0, so we return empty array
-          return [];
-        });
-
       console.log(
-        `[${source} Scraper] Successfully inserted ${inserted.length} new articles into MongoDB for ${source}.`
+        `[${source} Scraper] Successfully parsed ${scrapedArticles.length} articles from scraper output.`
       );
+
+      const validArticles = scrapedArticles.filter(
+        (article) => article.title && article.link // Ensure articles have title and link
+      );
+      console.log(
+        `[${source} Scraper] Filtered articles (title and link present): ${validArticles.length}`
+      );
+
+      let newlyInsertedCount = 0; // Initialize a counter for newly inserted articles
+      if (validArticles.length > 0) {
+        try {
+          // Mongoose will attempt to insert only unique documents due to unique: true on 'link'
+          const insertedDocs = await Model.insertMany(validArticles, {
+            ordered: false,
+          });
+          newlyInsertedCount = insertedDocs.length;
+          console.log(
+            `[${source} Scraper] Successfully inserted ${newlyInsertedCount} new articles into MongoDB for ${source}.`
+          );
+        } catch (insertError) {
+          // Check for E11000 duplicate key error (MongoDB unique constraint violation)
+          if (
+            insertError.code === 11000 ||
+            (insertError.writeErrors &&
+              insertError.writeErrors.some((err) => err.code === 11000))
+          ) {
+            console.warn(
+              `[${source} Scraper] InsertMany error for ${source}: E11000 duplicate key error collection:`,
+              insertError.message
+            );
+            console.warn(
+              `[${source} Scraper] Some articles for ${source} may have been duplicates or failed validation.`
+            );
+            // Count successfully inserted documents from the error object if available
+            if (insertError.insertedDocs) {
+              newlyInsertedCount = insertError.insertedDocs.length;
+            }
+            console.log(
+              `[${source} Scraper] Successfully inserted ${newlyInsertedCount} new articles into MongoDB for ${source} (duplicates prevented).`
+            );
+          } else {
+            console.error(
+              `[${source} Scraper] Unexpected InsertMany error for ${source}:`,
+              insertError
+            );
+            return res.status(500).json({
+              error: "Failed to insert articles into database",
+              details: insertError.message,
+            });
+          }
+        }
+      } else {
+        console.warn(
+          `[${source} Scraper] No valid articles to insert for ${source}.`
+        );
+      }
+
       res.json({
-        message: "Scraped and stored successfully",
-        count: inserted.length,
-        articles: inserted, // Return inserted articles (which won't include duplicates)
+        message: `Scraped and stored successfully for ${source}`,
+        totalParsed: scrapedArticles.length,
+        newlyInserted: newlyInsertedCount,
       });
     } catch (e) {
       console.error(
@@ -190,13 +202,43 @@ router.get("/:source/run", (req, res) => {
       );
       console.error(
         `[${source} Scraper] Problematic data for ${source}:\n`,
-        data.substring(0, 500) + "..."
-      ); // Log first 500 chars
+        data.substring(0, Math.min(data.length, 500)) +
+          (data.length > 500 ? "..." : "")
+      ); // Log up to first 500 chars
       res
         .status(500)
         .json({ error: "Failed to parse scraper output", details: e.message });
     }
   });
+});
+
+// Optional: Route to get all news from all sources (latest 20 from each, combined and sorted)
+router.get("/all", async (req, res) => {
+  try {
+    const allArticles = [];
+    const sources = Object.keys(sourceConfig); // Dynamically get sources from config
+
+    for (const source of sources) {
+      const config = sourceConfig[source];
+      if (config && config.model) {
+        // Fetch the latest 20 from each source to prevent overwhelming data for 'all' view
+        const articles = await config.model
+          .find({})
+          .sort({ createdAt: -1 })
+          .limit(20);
+        allArticles.push(...articles);
+      }
+    }
+    // Sort all articles globally by creation date (newest first)
+    allArticles.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    res.json(allArticles);
+  } catch (error) {
+    console.error("Error fetching all news:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to fetch all news", details: error.message });
+  }
 });
 
 module.exports = router;
