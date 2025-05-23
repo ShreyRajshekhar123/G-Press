@@ -17,14 +17,15 @@ driver.get("https://www.dnaindia.com/latest-news")
 
 time.sleep(5)  # Wait for dynamic content
 
-# Get article containers
-articles = driver.find_elements(By.CLASS_NAME, "explainer-subtext")
-
 data = []
 
-for article in articles[:25]:  # Only top 10
+# Instead of storing stale elements, loop with fresh access
+for i in range(25):
     try:
-        link_elem = article.find_element(By.TAG_NAME, "a")
+        articles = driver.find_elements(By.CLASS_NAME, "explainer-subtext")
+        if i >= len(articles):
+            break
+        link_elem = articles[i].find_element(By.TAG_NAME, "a")
         title = link_elem.text.strip()
         href = link_elem.get_attribute("href")
 
