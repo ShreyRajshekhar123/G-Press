@@ -13,6 +13,10 @@ export default function NewsCard({
   console.log("Article Title:", news ? news.title : "N/A");
   console.log("Article ID:", news ? news._id : "N/A");
   console.log("Article Source (news.source):", news ? news.source : "N/A");
+  console.log(
+    "Article Categories (news.categories):",
+    news ? news.categories : "N/A"
+  );
   console.log("userBookmarks received in NewsCard:", userBookmarks);
   // ----------------------------------------------------------------------------------
 
@@ -25,16 +29,15 @@ export default function NewsCard({
 
     const isBookmarkedNow = userBookmarks.some((bookmark) => {
       // --- DEBUGGING LOG INSIDE THE COMPARISON ---
-      // These logs will now correctly display the bookmark properties
       console.log(
         `  Comparing bookmark: ID=${bookmark._id}, Source=${bookmark.source}`
       );
       console.log(`  with news: ID=${news._id}, Source=${news.source}`);
       // ------------------------------------------
 
-      // **CRUCIAL: Match _id from the bookmark (which is the news article's _id)
+      // CRUCIAL: Match _id from the bookmark (which is the news article's _id)
       // and 'source' from the bookmark (which is the news article's source)
-      // against the current 'news' object's _id and source.**
+      // against the current 'news' object's _id and source.
       return bookmark._id === news._id && bookmark.source === news.source;
     });
     console.log(
@@ -174,8 +177,28 @@ export default function NewsCard({
       {news.description && (
         <p className="text-gray-300 mt-2 text-sm">{news.description}</p>
       )}
-      <div className="mt-4 text-gray-400 text-xs flex justify-between">
-        {news.source && <span>{news.source}</span>}
+      <div className="mt-4 text-gray-400 text-xs flex justify-between items-center">
+        {/* Display Categories or 'General' label */}
+        <div className="flex flex-wrap gap-1">
+          {news.categories && news.categories.length > 0 ? (
+            // If categories exist, map and display them
+            news.categories.map((category, index) => (
+              <span
+                key={index}
+                className="bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full text-xs font-medium"
+              >
+                {category}
+              </span>
+            ))
+          ) : (
+            // If no categories, display 'General'
+            <span className="bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full text-xs font-medium">
+              General
+            </span>
+          )}
+        </div>
+
+        {/* Published At date (on the right) */}
         {news.publishedAt && (
           <span>{new Date(news.publishedAt).toLocaleString()}</span>
         )}
