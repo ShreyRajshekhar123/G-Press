@@ -14,8 +14,6 @@ const formatSourceName = (sourceSlug) => {
   if (!sourceSlug) return "";
   if (sourceSlug === "all") return "All News";
   if (sourceSlug === "bookmarks") return "Your Bookmarks";
-  // The rest of your specific format checks are good.
-  // This fall-through logic handles them fine.
   if (sourceSlug === "ie") return "Indian Express";
   if (sourceSlug === "dna") return "DNA India";
   if (sourceSlug === "toi") return "Times of India";
@@ -51,7 +49,6 @@ export default function NewsTabs({
         let fetchedArticles = [];
 
         if (sourceToFetch === "bookmarks") {
-          // *** FIX 1: Corrected Bookmark API Endpoint ***
           apiEndpoint = `http://localhost:5000/api/news/user/${userId}/bookmarks`;
         } else {
           apiEndpoint = `http://localhost:5000/api/news/${sourceToFetch}`;
@@ -60,11 +57,18 @@ export default function NewsTabs({
         const response = await axios.get(apiEndpoint);
 
         if (sourceToFetch === "bookmarks") {
-          // Backend for bookmarks now directly returns an array of articles
           fetchedArticles = response.data || [];
         } else {
-          // *** FIX 2: Backend for sources directly returns an array of articles ***
-          fetchedArticles = response.data || []; // No `.articles` property
+          // *** THIS IS THE CRUCIAL FIX ***
+          // Backend for sources directly returns an array of articles
+          fetchedArticles = response.data || [];
+
+          // *** ADD THIS MAPPING HERE ***
+          // Attach the source ID to each article so NewsCard knows its origin
+          fetchedArticles = fetchedArticles.map((article) => ({
+            ...article,
+            source: sourceToFetch, // This will be 'hindu', 'toi', etc.
+          }));
         }
         setArticles(fetchedArticles);
       } catch (err) {
@@ -79,29 +83,25 @@ export default function NewsTabs({
         setLoading(false);
       }
     },
-    [userId] // userId is a dependency for the bookmark endpoint
+    [userId]
   );
 
   useEffect(() => {
     if (mainActiveTab === "all") {
-      // When "All News" is selected, default to the first newspaper
       setActiveSubTab(newspapers[0].id);
       fetchNews(newspapers[0].id);
     } else if (mainActiveTab === "bookmarks") {
-      // When "Bookmarks" is selected, clear sub-tab and fetch bookmarks
-      setActiveSubTab(null); // No sub-tabs for bookmarks
+      setActiveSubTab(null);
       fetchNews("bookmarks");
     }
-  }, [mainActiveTab, fetchNews]); // Re-run when main tab or fetchNews callback changes
+  }, [mainActiveTab, fetchNews]);
 
   useEffect(() => {
-    // This effect runs when activeSubTab changes, but only if mainActiveTab is "all"
     if (mainActiveTab === "all" && activeSubTab) {
       fetchNews(activeSubTab);
     }
-  }, [activeSubTab, mainActiveTab, fetchNews]); // Re-run when sub-tab, main tab, or fetchNews callback changes
+  }, [activeSubTab, mainActiveTab, fetchNews]);
 
-  // Determine the name to display in the "No articles found" message
   const displaySourceName =
     mainActiveTab === "all" ? activeSubTab : mainActiveTab;
 
@@ -141,11 +141,10 @@ export default function NewsTabs({
               " Run the scraper for this source if needed."}
           </p>
         ) : (
-          // Render NewsCard for each article
           articles.map((article) => (
             <NewsCard
-              key={article._id} // Use article._id as the unique key
-              news={article} // Pass the entire article object as 'news' prop
+              key={article._id}
+              news={article}
               userId={userId}
               userBookmarks={userBookmarks}
               onBookmarkToggleSuccess={onBookmarkToggleSuccess}

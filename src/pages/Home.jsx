@@ -1,63 +1,108 @@
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
-import { auth } from "../firebase";
-import { signOut } from "firebase/auth";
+import { auth } from "../firebase"; // Import auth directly from your firebase.js
+import { onAuthStateChanged, signOut } from "firebase/auth"; // Import onAuthStateChanged
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
-import NewsTabs from "../components/NewsFeed"; // Renamed from NewsFeed/NewsTabs
+import NewsTabs from "../components/NewsFeed";
 
 export default function Home() {
   const navigate = useNavigate();
-  // activeTab here will only be 'all' or 'bookmarks' as controlled by the sidebar
-  const [activeTab, setActiveTab] = useState("all"); // Default to "All News" from sidebar
-  const [userId] = useState("defaultUser"); // Hardcoded userId for now
-  const [userBookmarks, setUserBookmarks] = useState([]); // State for user's raw bookmarks
+  // State to hold the Firebase user object
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(true); // New state to track if user is being loaded
+
+  const [activeTab, setActiveTab] = useState("all");
+  // userId will now be derived from currentUser.uid
+  const userId = currentUser ? currentUser.uid : null;
+  const [userBookmarks, setUserBookmarks] = useState([]);
+
+  // Effect to listen for Firebase auth state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // User is signed in
+        setCurrentUser(user);
+        console.log("Firebase user detected:", user.uid);
+      } else {
+        // User is signed out
+        setCurrentUser(null);
+        console.log("Firebase user logged out.");
+      }
+      setLoadingUser(false); // User loading is complete
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, []); // Empty dependency array means this runs once on mount
 
   // Function to fetch the raw user bookmarks list
   const fetchUserBookmarks = useCallback(async () => {
+    // Only attempt to fetch if userId is available and not still loading user
+    if (!userId || loadingUser) {
+      console.log(
+        "Skipping bookmark fetch: userId not available or user still loading."
+      );
+      setUserBookmarks([]); // Ensure bookmarks are empty if no user or user still loading
+      return;
+    }
+
     try {
       const response = await axios.get(
-        // === FIX IS ON THIS LINE ===
-        `http://localhost:5000/api/news/user/${userId}/bookmarks` // Corrected endpoint
+        `http://localhost:5000/api/news/user/${userId}/bookmarks`
       );
-      // Assuming your backend responds with { bookmarkedArticles: [...] }
-      // The backend now sends an array of articles directly for this route, not an object with bookmarkedArticles
-      setUserBookmarks(response.data || []); // Directly use response.data as it's an array of articles
+      setUserBookmarks(response.data || []);
+      console.log("Fetched user bookmarks in Home:", response.data); // DEBUG: Confirm data
     } catch (err) {
-      console.error("Error fetching user bookmarks in Home:", err);
-      // In a real app, you might show a notification to the user
+      console.error(
+        "Error fetching user bookmarks in Home:",
+        err.response ? err.response.data : err.message
+      );
+      setUserBookmarks([]);
     }
-  }, [userId]); // Dependency array: re-create if userId changes
+  }, [userId, loadingUser]); // Dependency array: re-create if userId or loadingUser changes
 
-  // Effect to fetch user bookmarks on component mount and whenever fetchUserBookmarks updates
+  // Effect to fetch user bookmarks when the userId becomes available (after Firebase auth state changes)
   useEffect(() => {
-    fetchUserBookmarks();
-  }, [fetchUserBookmarks]); // Dependency array: re-run if fetchUserBookmarks callback changes
+    if (!loadingUser) {
+      // Only try to fetch once user loading is complete
+      fetchUserBookmarks();
+    }
+  }, [loadingUser, fetchUserBookmarks]); // Dependency array: re-run if loadingUser state or fetchUserBookmarks callback changes
 
-  // Callback function to re-fetch bookmarks after a toggle in NewsCard
   const handleBookmarkToggleSuccess = useCallback(() => {
     console.log("Bookmark toggle successful, re-fetching bookmarks...");
     fetchUserBookmarks(); // Re-fetch all bookmarks to update the state
-    // NewsTabs's useEffect for mainActiveTab and activeSubTab will handle re-fetching relevant news
   }, [fetchUserBookmarks]);
 
   const handleLogout = () => {
-    signOut(auth).then(() => navigate("/"));
+    signOut(auth)
+      .then(() => {
+        setCurrentUser(null); // Clear user state on logout
+        navigate("/");
+      })
+      .catch((error) => {
+        console.error("Logout Error:", error);
+      });
   };
+
+  if (loadingUser) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-900 text-white">
+        Loading user data...
+      </div>
+    );
+  }
 
   return (
     <div className="flex bg-gray-900 min-h-screen">
-      {/* Sidebar component */}
       <Sidebar
-        activeTab={activeTab} // Pass activeTab state down
-        setActiveTab={setActiveTab} // Pass setter function down
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
         onLogout={handleLogout}
       />
 
-      {/* Main content area, offset by sidebar width */}
       <div className="flex-grow ml-64 p-6 text-white">
-        {" "}
-        {/* ml-64 to push content right of fixed sidebar */}
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-blue-400">
             📰 NewsHub Dashboard
@@ -67,13 +112,18 @@ export default function Home() {
           👋 Welcome! Select a navigation item from the sidebar or a news source
           tab.
         </p>
-        {/* NewsTabs will now handle its own sub-tabs if activeTab is "all" */}
-        <NewsTabs
-          mainActiveTab={activeTab} // Pass the main active tab from sidebar to NewsTabs
-          userId={userId} // Pass userId for bookmarking
-          userBookmarks={userBookmarks} // Pass current user bookmarks for NewsCard
-          onBookmarkToggleSuccess={handleBookmarkToggleSuccess} // Pass callback
-        />
+        {userId ? ( // Render NewsTabs only if userId is available (user is logged in)
+          <NewsTabs
+            mainActiveTab={activeTab}
+            userId={userId} // Pass the real Firebase UID
+            userBookmarks={userBookmarks}
+            onBookmarkToggleSuccess={handleBookmarkToggleSuccess}
+          />
+        ) : (
+          <p className="text-white text-center text-xl">
+            Please log in to view personalized news and bookmarks.
+          </p>
+        )}
       </div>
     </div>
   );
