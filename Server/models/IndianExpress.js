@@ -1,28 +1,54 @@
+// C:\Users\OKKKK\Desktop\G-Press\G-Press\Server\models\indianexpress.js
+
 const mongoose = require("mongoose");
 
 const indianExpressSchema = new mongoose.Schema(
   {
-    title: String,
+    title: { type: String, required: true },
     link: {
       type: String,
-      unique: true, // IMPORTANT: Ensures no duplicate articles based on their link
-      required: true, // Ensures a link is always present for uniqueness check
+      unique: true,
+      required: true,
     },
-    source: String, // Keep this if your IndianExpress scraper outputs a 'source' field
-    createdAt: {
-      type: Date,
-      default: Date.now,
+    // --- Existing and Correct: Source Identifier ---
+    source: {
+      type: String,
+      required: true,
+      trim: true,
+      lowercase: true, // Ensure source is stored consistently (e.g., 'ie')
     },
+    // --- ADDED OPTIONAL FIELDS (if your scraper provides them) ---
+    description: { type: String },
+    imageUrl: { type: String },
+    content: { type: String },
+    // --- END ADDED OPTIONAL FIELDS ---
+    categories: [
+      {
+        type: String,
+        enum: [
+          "Polity & Governance",
+          "Economy",
+          "Environment & Ecology",
+          "Science & Technology",
+          "International Relations",
+          "Art & Culture",
+          "History",
+          "Social Issues",
+          "Defence & Security",
+          "Awards, Persons & Places in News",
+          "Sports",
+          "Miscellaneous",
+        ],
+        default: [],
+      },
+    ],
   },
   { timestamps: true }
 );
 
-// Define the model, explicitly telling Mongoose to use the 'indianexpress' collection.
-// 'IndianExpress' is the model name (conventionally capitalized).
-// 'indianExpressSchema' is the schema defined above.
-// 'indianexpress' (as a string) is the exact collection name to use in MongoDB.
+// Preserve the explicit collection name, and ensure model name is "IndianExpress".
 module.exports = mongoose.model(
-  "IndianExpress",
+  "IndianExpress", // Consistent model name (capitalized)
   indianExpressSchema,
-  "indianexpress"
+  "indianexpress" // Explicit collection name (lowercase)
 );
