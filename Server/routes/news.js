@@ -42,8 +42,7 @@ const sourceConfig = {
   dna: {
     model: Dna,
     filePath: path.join(__dirname, "../scrapers/dna_scraper.py"),
-  },
-  // Add other sources here as you implement their scrapers and models
+  }, // Add other sources here as you implement their scrapers and models
 };
 
 // =========================================================
@@ -257,8 +256,7 @@ const CATEGORY_KEYWORDS = {
     "cuisine",
     "vacation",
     "design",
-  ],
-  // Add more categories and keywords as needed to improve categorization accuracy
+  ], // Add more categories and keywords as needed to improve categorization accuracy
 };
 
 // Function to assign categories based on keywords
@@ -480,9 +478,9 @@ async function identifyUser(req, res, next) {
 // Changes:
 // 1. Added console.logs for debugging within routes.
 // 2. Renamed specific source route to match frontend expectation (likely /:source)
-//    If your frontend sends requests like `/api/news/hindu` then use `/:source`
-//    If your frontend sends requests like `/api/news/source/hindu` then keep `/source/:source`
-//    Based on the previous network tab, it looks like it's just `/:source`.
+//    If your frontend sends requests like `/api/news/hindu` then use `/:source`
+//    If your frontend sends requests like `/api/news/source/hindu` then keep `/source/:source`
+//    Based on the previous network tab, it looks like it's just `/:source`.
 // =========================================================
 
 // NEW SEARCH ROUTE - Always put more specific routes first.
@@ -505,6 +503,7 @@ router.get("/search", async (req, res) => {
             { title: { $regex: regex } },
             { description: { $regex: regex } },
             { content: { $regex: regex } },
+            { categories: { $regex: regex } }, // This line is the only change in this block
           ],
         })
           .sort({ publishedAt: -1 })
@@ -536,8 +535,7 @@ router.get("/all", async (req, res) => {
       const Model = sourceConfig[sourceName].model;
       const articles = await Model.find()
         .sort({ publishedAt: -1 })
-        .limit(limitPerSource);
-      // ADDED LOG:
+        .limit(limitPerSource); // ADDED LOG:
       console.log(
         `[Backend /all] Fetched ${articles.length} articles from ${sourceName} from DB.`
       );
@@ -546,8 +544,7 @@ router.get("/all", async (req, res) => {
 
     allArticles.sort((a, b) => b.publishedAt - a.publishedAt);
 
-    const finalLimit = 50;
-    // ADDED LOG:
+    const finalLimit = 50; // ADDED LOG:
     console.log(
       `[Backend /all] Preparing to send ${allArticles.length} total articles (limited to ${finalLimit}).`
     );
@@ -577,8 +574,7 @@ router.get("/user/:userId/bookmarks", identifyUser, async (req, res) => {
           });
         }
       }
-    }
-    // ADDED LOG:
+    } // ADDED LOG:
     console.log(
       `[Backend /bookmarks] Sending ${bookmarkedArticles.length} bookmarked articles.`
     );
@@ -609,8 +605,7 @@ router.get("/:source", async (req, res) => {
   }
 
   try {
-    const articles = await Model.find().sort({ publishedAt: -1 }).limit(50);
-    // ADDED LOG:
+    const articles = await Model.find().sort({ publishedAt: -1 }).limit(50); // ADDED LOG:
     console.log(
       `[Backend /${sourceName}] Fetched ${articles.length} articles from DB.`
     );
