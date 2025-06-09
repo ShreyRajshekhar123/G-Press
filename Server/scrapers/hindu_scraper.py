@@ -36,7 +36,8 @@ def get_articles():
                     articles.append({
                         "title": title.strip(),
                         "link": link,
-                        "summary": title.strip()
+                        "summary": title.strip(),
+                        "source": "hindu"
                     })
 
             except Exception as inner_e:

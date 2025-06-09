@@ -32,7 +32,8 @@ for i in range(25):
         if title and href:
             data.append({
                 "title": title,
-                "link": href
+                "link": href,
+                "source": "dna"
             })
 
     except Exception as e:

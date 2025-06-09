@@ -31,7 +31,8 @@ def get_hindustan_times_articles():
                 articles.append({
                     "title": title.strip(),
                     "link": link,
-                    "summary": title.strip()
+                    "summary": title.strip(),
+                    "source": "hindustantimes"
                 })
 
             if len(articles) >= 25:

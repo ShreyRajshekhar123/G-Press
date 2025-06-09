@@ -1,24 +1,25 @@
+// src/components/Sidebar.jsx
 import React from "react";
 import { Link } from "react-router-dom";
 import {
   FaHome,
   FaBookmark,
   FaSignOutAlt,
-  FaBars,
-  FaTimes,
-} from "react-icons/fa"; // Added FaBars, FaTimes if you wanted them here
+  FaNewspaper,
+  FaSearch,
+} from "react-icons/fa"; // ✅ Added FaSearch
 
 export default function Sidebar({
   activeTab,
   setActiveTab,
   onLogout,
-  isSidebarOpen, // NEW PROP
-  toggleSidebar, // NEW PROP (though we won't use it directly inside sidebar for its own toggle)
+  isSidebarOpen,
+  toggleSidebar,
 }) {
   const handleTabClick = (tabName) => {
     setActiveTab(tabName);
     // Optional: Close sidebar on small screens after clicking a tab
-    // if (window.innerWidth < 768) { // Example breakpoint for small screens
+    // if (window.innerWidth < 768) {
     //   toggleSidebar();
     // }
   };
@@ -37,96 +38,66 @@ export default function Sidebar({
       </div>
 
       <nav className="space-y-4">
-        {/* All News Tab */}
-        <button
+        {/* Current Affairs Link (typically the default home/dashboard view) */}
+        <Link
+          to="/home" // Link to the home route
+          className={`w-full text-left py-2 px-4 rounded-lg flex items-center transition-colors duration-200
+            ${
+              // Highlight if current-affairs tab is active, or if the path is /home and no specific tab is selected
+              activeTab === "current-affairs"
+                ? "bg-blue-600 text-white"
+                : "hover:bg-gray-700 text-gray-300"
+            }`}
+          onClick={() => handleTabClick("current-affairs")} // Still update activeTab for highlighting
+        >
+          <FaNewspaper className="mr-3 text-lg" />
+          <span>Current Affairs</span>
+        </Link>
+
+        {/* All News Link */}
+        <Link
+          to="/news/all" // Link to the all news route
           className={`w-full text-left py-2 px-4 rounded-lg flex items-center transition-colors duration-200
             ${
               activeTab === "all"
                 ? "bg-blue-600 text-white"
                 : "hover:bg-gray-700 text-gray-300"
             }`}
-          onClick={() => handleTabClick("all")}
+          onClick={() => handleTabClick("all")} // Still update activeTab for highlighting
         >
           <FaHome className="mr-3 text-lg" />
           <span>All News</span>
-        </button>
+        </Link>
 
-        {/* Bookmarks Tab (always available, but only shows content if logged in) */}
-        <button
+        {/* Bookmarks Link */}
+        <Link
+          to="/news/bookmarks" // Link to the bookmarks route
           className={`w-full text-left py-2 px-4 rounded-lg flex items-center transition-colors duration-200
             ${
               activeTab === "bookmarks"
                 ? "bg-blue-600 text-white"
                 : "hover:bg-gray-700 text-gray-300"
             }`}
-          onClick={() => handleTabClick("bookmarks")}
+          onClick={() => handleTabClick("bookmarks")} // Still update activeTab for highlighting
         >
           <FaBookmark className="mr-3 text-lg" />
           <span>Bookmarks</span>
-        </button>
+        </Link>
 
-        {/* REMOVED: News Source Tabs and the "Sources" heading */}
-        {/*
-        <h2 className="text-gray-400 text-sm uppercase tracking-wider mt-6 mb-2">
-          Sources
-        </h2>
-        <button
+        {/* ✅ New Search Link */}
+        <Link
+          to="/search" // Link to the new dedicated search page
           className={`w-full text-left py-2 px-4 rounded-lg flex items-center transition-colors duration-200
             ${
-              activeTab === "hindu"
+              activeTab === "search" // Set this to "search" in SearchPage.jsx to highlight
                 ? "bg-blue-600 text-white"
                 : "hover:bg-gray-700 text-gray-300"
             }`}
-          onClick={() => handleTabClick("hindu")}
+          onClick={() => handleTabClick("search")} // Update activeTab to highlight "Search"
         >
-          <span>The Hindu</span>
-        </button>
-        <button
-          className={`w-full text-left py-2 px-4 rounded-lg flex items-center transition-colors duration-200
-            ${
-              activeTab === "hindustan-times"
-                ? "bg-blue-600 text-white"
-                : "hover:bg-gray-700 text-gray-300"
-            }`}
-          onClick={() => handleTabClick("hindustan-times")}
-        >
-          <span>Hindustan Times</span>
-        </button>
-        <button
-          className={`w-full text-left py-2 px-4 rounded-lg flex items-center transition-colors duration-200
-            ${
-              activeTab === "toi"
-                ? "bg-blue-600 text-white"
-                : "hover:bg-gray-700 text-gray-300"
-            }`}
-          onClick={() => handleTabClick("toi")}
-        >
-          <span>Times of India</span>
-        </button>
-        <button
-          className={`w-full text-left py-2 px-4 rounded-lg flex items-center transition-colors duration-200
-            ${
-              activeTab === "ie"
-                ? "bg-blue-600 text-white"
-                : "hover:bg-gray-700 text-gray-300"
-            }`}
-          onClick={() => handleTabClick("ie")}
-        >
-          <span>Indian Express</span>
-        </button>
-        <button
-          className={`w-full text-left py-2 px-4 rounded-lg flex items-center transition-colors duration-200
-            ${
-              activeTab === "dna"
-                ? "bg-blue-600 text-white"
-                : "hover:bg-gray-700 text-gray-300"
-            }`}
-          onClick={() => handleTabClick("dna")}
-        >
-          <span>DNA India</span>
-        </button>
-        */}
-        {/* Add more source buttons here as needed if you decide to put them back */}
+          <FaSearch className="mr-3 text-lg" />
+          <span>Search News</span>
+        </Link>
       </nav>
 
       {/* Logout button positioned at the bottom */}

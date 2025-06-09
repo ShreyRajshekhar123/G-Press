@@ -27,7 +27,7 @@ for article in articles[:25]:  # top 10
         title = link_elem.text.strip()
         href = link_elem.get_attribute("href")
         if title and href:
-            data.append({"title": title, "link": href})
+            data.append({"title": title, "link": href, "source": "indianexpress"})
     except:
         continue
 

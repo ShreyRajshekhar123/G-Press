@@ -69,7 +69,8 @@ for a in anchors[:25]:
     if title and link:
         headlines.append({
             "title": title,
-            "link": link
+            "link": link,
+            "source": "timesofindia"
         })
 
 driver.quit()

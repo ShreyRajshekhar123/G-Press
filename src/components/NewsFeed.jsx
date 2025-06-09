@@ -1,157 +1,138 @@
-import { useState, useEffect, useCallback } from "react";
+// src/components/NewsFeed.jsx
+
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
-import NewsCard from "./NewsCard";
+import NewsCard from "./NewsCard"; // Your NewsCard
+import { ClipLoader } from "react-spinners";
 
-const newspapers = [
-  { id: "hindu", name: "The Hindu" },
-  { id: "hindustan-times", name: "Hindustan Times" },
-  { id: "toi", name: "Times of India" },
-  { id: "ie", name: "Indian Express" },
-  { id: "dna", name: "DNA India" },
-];
-
-const formatSourceName = (sourceSlug) => {
-  if (!sourceSlug) return "";
-  if (sourceSlug === "all") return "All News";
-  if (sourceSlug === "bookmarks") return "Your Bookmarks";
-  if (sourceSlug === "ie") return "Indian Express";
-  if (sourceSlug === "dna") return "DNA India";
-  if (sourceSlug === "toi") return "Times of India";
-  if (sourceSlug === "hindu") return "The Hindu";
-  if (sourceSlug === "hindustan-times") return "Hindustan Times";
-  return sourceSlug
-    .replace(/-/g, " ")
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-};
-
-export default function NewsTabs({
+export default function NewsFeed({
   mainActiveTab,
   userId,
-  userBookmarks,
+  userBookmarks, // This is the array of bookmarked articles for the current user
   onBookmarkToggleSuccess,
+  searchTerm,
+  currentUser,
 }) {
-  const [articles, setArticles] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [newsItems, setNewsItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const [activeSubTab, setActiveSubTab] = useState(newspapers[0].id);
+  const fetchNews = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    setNewsItems([]); // Clear previous news items when fetching new ones
 
-  const fetchNews = useCallback(
-    async (sourceToFetch) => {
-      setLoading(true);
-      setError(null);
-      setArticles([]); // Clear previous articles while loading
+    let apiUrl = "http://localhost:5000/api/news/"; // Base API URL
 
-      try {
-        let apiEndpoint;
-        let fetchedArticles = [];
-
-        if (sourceToFetch === "bookmarks") {
-          apiEndpoint = `http://localhost:5000/api/news/user/${userId}/bookmarks`;
-        } else {
-          apiEndpoint = `http://localhost:5000/api/news/${sourceToFetch}`;
-        }
-
-        const response = await axios.get(apiEndpoint);
-
-        if (sourceToFetch === "bookmarks") {
-          fetchedArticles = response.data || [];
-        } else {
-          // *** THIS IS THE CRUCIAL FIX ***
-          // Backend for sources directly returns an array of articles
-          fetchedArticles = response.data || [];
-
-          // *** ADD THIS MAPPING HERE ***
-          // Attach the source ID to each article so NewsCard knows its origin
-          fetchedArticles = fetchedArticles.map((article) => ({
-            ...article,
-            source: sourceToFetch, // This will be 'hindu', 'toi', etc.
-          }));
-        }
-        setArticles(fetchedArticles);
-      } catch (err) {
-        console.error("Error fetching news:", err);
-        setError(
-          `Failed to load news from ${formatSourceName(
-            sourceToFetch
-          )}. Please ensure backend is running and data exists.`
-        );
-        setArticles([]); // Ensure articles are empty on error
-      } finally {
-        setLoading(false);
-      }
-    },
-    [userId]
-  );
-
-  useEffect(() => {
-    if (mainActiveTab === "all") {
-      setActiveSubTab(newspapers[0].id);
-      fetchNews(newspapers[0].id);
+    if (searchTerm) {
+      apiUrl += `search?q=${encodeURIComponent(searchTerm)}`;
     } else if (mainActiveTab === "bookmarks") {
-      setActiveSubTab(null);
-      fetchNews("bookmarks");
+      if (!userId) {
+        setError("Please log in to view bookmarks.");
+        setNewsItems([]);
+        setLoading(false);
+        return;
+      }
+      apiUrl += `user/${userId}/bookmarks`;
+    } else if (mainActiveTab === "all") {
+      // Assuming "all" tab fetches all news
+      apiUrl += "all";
+    } else if (mainActiveTab === "current-affairs") {
+      // If "Current Affairs" is a special tab
+      apiUrl += "all"; // Or adjust if you have a specific backend route for current affairs
+    } else {
+      // For specific newspaper tabs (e.g., "hindu", "hindustan-times", "toi", "ie", "dna")
+      apiUrl += `${mainActiveTab}`; // No need for '/source/'
     }
-  }, [mainActiveTab, fetchNews]);
+
+    console.log(`[NewsFeed] Constructed API URL: ${apiUrl}`);
+
+    try {
+      const token = await currentUser?.getIdToken();
+
+      const response = await axios.get(apiUrl, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+          "x-user-id": userId || "",
+        },
+      });
+      setNewsItems(response.data);
+      console.log(
+        "Fetched news for tab:",
+        mainActiveTab,
+        "Data:",
+        response.data
+      );
+    } catch (err) {
+      console.error(`Error fetching news for ${mainActiveTab}:`, err);
+      setError("Failed to fetch news. Please try again later.");
+      setNewsItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [mainActiveTab, userId, searchTerm, currentUser]);
 
   useEffect(() => {
-    if (mainActiveTab === "all" && activeSubTab) {
-      fetchNews(activeSubTab);
+    if (
+      currentUser ||
+      searchTerm ||
+      mainActiveTab === "all" ||
+      mainActiveTab === "current-affairs"
+    ) {
+      fetchNews();
+    } else {
+      setNewsItems([]);
+      setLoading(false);
+      if (mainActiveTab === "bookmarks" && !userId) {
+        setError("Please log in to view bookmarks.");
+      }
     }
-  }, [activeSubTab, mainActiveTab, fetchNews]);
+  }, [fetchNews, currentUser, searchTerm, mainActiveTab, userId]);
 
-  const displaySourceName =
-    mainActiveTab === "all" ? activeSubTab : mainActiveTab;
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <ClipLoader size={50} color={"#123abc"} loading={loading} />
+        <p className="text-blue-400 ml-4">Loading news...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="text-red-500 text-center py-8">{error}</div>;
+  }
+
+  if (newsItems.length === 0 && !loading) {
+    return (
+      <div className="text-gray-400 text-center py-8">
+        No news found for this category or search term.
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 container mx-auto px-4 py-8">
-      {mainActiveTab === "all" && (
-        <div className="flex flex-wrap gap-3 justify-center mb-6">
-          {newspapers.map((paper) => (
-            <button
-              key={paper.id}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition ${
-                activeSubTab === paper.id
-                  ? "bg-blue-600 text-white shadow-lg"
-                  : "bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white"
-              }`}
-              onClick={() => setActiveSubTab(paper.id)}
-            >
-              {paper.name}
-            </button>
-          ))}
-        </div>
-      )}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      {newsItems.map((newsItem) => {
+        // Ensure newsItem and its _id are defined before passing
+        if (!newsItem || !newsItem._id) {
+          console.warn(
+            "Skipping NewsCard due to incomplete article data:",
+            newsItem
+          );
+          return null;
+        }
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {loading ? (
-          <p className="text-gray-400 col-span-full text-center text-lg py-10">
-            Loading {formatSourceName(displaySourceName)} news...
-          </p>
-        ) : error ? (
-          <p className="text-red-400 col-span-full text-center text-lg py-10 border border-red-600 p-4 rounded-md bg-red-900 bg-opacity-20 mx-auto max-w-xl">
-            {error}
-          </p>
-        ) : articles.length === 0 ? (
-          <p className="text-gray-400 col-span-full text-center text-lg py-10 bg-gray-700 bg-opacity-50 rounded-md mx-auto max-w-xl">
-            No articles found for {formatSourceName(displaySourceName)}.
-            {displaySourceName !== "bookmarks" &&
-              " Run the scraper for this source if needed."}
-          </p>
-        ) : (
-          articles.map((article) => (
-            <NewsCard
-              key={article._id}
-              news={article}
-              userId={userId}
-              userBookmarks={userBookmarks}
-              onBookmarkToggleSuccess={onBookmarkToggleSuccess}
-            />
-          ))
-        )}
-      </div>
+        return (
+          <NewsCard
+            key={newsItem._id}
+            news={newsItem} // CRUCIAL: Pass as 'news' prop, not 'article'
+            userId={userId}
+            userBookmarks={userBookmarks} // Pass the entire userBookmarks array
+            onBookmarkToggleSuccess={onBookmarkToggleSuccess}
+            currentUser={currentUser}
+          />
+        );
+      })}
     </div>
   );
 }
