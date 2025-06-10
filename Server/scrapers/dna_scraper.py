@@ -1,8 +1,15 @@
+# C:\Users\OKKKK\Desktop\G-Press 1\G-Press\Server\scrapers\dna_scraper.py
+
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 import json
 import time
+import sys # Import the sys module
+
+# Set the default encoding for standard output to UTF-8
+# This helps resolve UnicodeEncodeError when printing non-ASCII characters
+sys.stdout.reconfigure(encoding='utf-8')
 
 # Setup headless Chrome options
 options = Options()
@@ -15,7 +22,7 @@ options.add_argument('--disable-dev-shm-usage')
 driver = webdriver.Chrome(options=options)
 driver.get("https://www.dnaindia.com/latest-news")
 
-time.sleep(5)  # Wait for dynamic content
+time.sleep(5)   # Wait for dynamic content
 
 data = []
 
@@ -37,6 +44,8 @@ for i in range(25):
             })
 
     except Exception as e:
+        # Optional: uncomment the line below for more detailed debugging if needed
+        # print(f"Error processing article {i}: {e}", file=sys.stderr)
         continue
 
 driver.quit()

@@ -1,5 +1,7 @@
 // C:\Users\OKKKK\Desktop\G-Press\G-Press\Server\index.js
 
+require("dotenv").config(); // <<<--- ADD THIS LINE: To load environment variables from .env
+
 const express = require("express");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
@@ -14,14 +16,18 @@ const {
   cleanupOldNews,
 } = require("./routes/news");
 
+// <<<--- ADD THIS LINE: Import the AI router
+const aiRouter = require("./routes/ai");
+
 const app = express();
 
 app.use(bodyParser.json());
 app.use(cors());
 
 // Connect to MongoDB
+// <<<--- MODIFIED LINE: Use MONGODB_URI from .env
 mongoose
-  .connect("mongodb://localhost:27017/newsDB") // No need for deprecated options
+  .connect(process.env.MONGODB_URI || "mongodb://localhost:27017/newsDB")
   .then(() => console.log("✅ Connected to MongoDB"))
   .catch((err) => console.error("❌ MongoDB connection error:", err));
 
@@ -49,12 +55,11 @@ cron.schedule("0 3 * * *", () => {
 
 // API Routes
 app.use("/api/news", newsRoutes);
+app.use("/api/ai", aiRouter); // <<<--- ADD THIS LINE: Mount the AI router
 
 // Start the server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`✅ Server started on port ${PORT}`);
-  // Optional: Run scrapers once immediately when the server starts for initial data.
-  // This is good for development, but in production, cron will handle it.
+  console.log(`✅ Server started on port ${PORT}`); // Optional: Run scrapers once immediately when the server starts for initial data. // This is good for development, but in production, cron will handle it.
   runAllScrapers();
 });
