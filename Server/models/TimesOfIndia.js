@@ -1,13 +1,13 @@
+// Server/models/TimesOfIndia.js (Assuming this is a separate file)
+// Note: This model should be in its own file, e.g., TimesOfIndia.js
 const mongoose = require("mongoose");
-
-const articleSchema = new mongoose.Schema(
+const timesOfIndiaSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
     link: { type: String, unique: true, required: true },
     description: { type: String, default: null },
     imageUrl: { type: String, default: null },
-    content: { type: String, default: null }, // Ensures content field is present and defaults to null
-    // ADDED: questions array - now storing references to questions in a separate 'Question' collection
+    content: { type: String, default: null },
     questions: [{ type: mongoose.Schema.Types.ObjectId, ref: "Question" }],
 
     lastGeneratedQuestionsAt: {
@@ -23,12 +23,12 @@ const articleSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      lowercase: true, // Ensure source is stored consistently (e.g., 'timesofindia')
+      lowercase: true,
     },
     isCurrentAffair: {
       type: Boolean,
       default: false,
-      index: true, // Add index for faster queries
+      index: true,
     },
     currentAffairsCategory: {
       type: String,
@@ -45,12 +45,12 @@ const articleSchema = new mongoose.Schema(
         "Social Issues",
         "Miscellaneous",
         "General",
-      ], // Define your categories
+      ],
       default: "General",
     },
     aiCategorizationTimestamp: {
       type: Date,
-      default: null, // To track when AI categorization happened
+      default: null,
     },
     categories: [
       {
@@ -66,11 +66,10 @@ const articleSchema = new mongoose.Schema(
           "Social Issues",
           "Defence & Security",
           "Awards, Persons & Places in News",
-          "Technology",
-          "World",
-          "National",
-          "Sports",
-          "Miscellaneous",
+          "National", // Aligned with news.js SCHEMA_ENUM_CATEGORIES
+          "Sports", // Aligned with news.js SCHEMA_ENUM_CATEGORIES
+          "Miscellaneous", // Aligned with news.js SCHEMA_ENUM_CATEGORIES
+          "General", // <--- ADDED: Critical for resolving the validation error
         ],
       },
     ],
@@ -78,6 +77,8 @@ const articleSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Model name should be "TimesOfIndia" (capitalized) for consistency with Question.js modelSourceModel.
-// Explicitly define collection name 'timesofindia' (Mongoose default would be 'timesofindias')
-module.exports = mongoose.model("TimesOfIndia", articleSchema, "timesofindia");
+module.exports = mongoose.model(
+  "TimesOfIndia",
+  timesOfIndiaSchema,
+  "timesofindia"
+);

@@ -55,6 +55,299 @@ const formatSourceForDisplay = (configKey) => {
   }
 };
 
+// --- NEW: Category Assignment Logic ---
+// IMPORTANT: These categories MUST exactly match the enum values in your Mongoose schema.
+// If you add new categories here, you MUST update your Mongoose schema accordingly.
+const categoryKeywords = {
+  "Polity & Governance": [
+    "modi",
+    "government",
+    "election",
+    "parliament",
+    "congress",
+    "bjp",
+    "party",
+    "minister",
+    "cabinet",
+    "policy",
+    "political",
+    "judiciary",
+    "justice",
+    "supreme court",
+    "governance",
+    "rajnath",
+    "gandhi",
+    "karnataka",
+    "bihar",
+  ],
+  Economy: [
+    "economy",
+    "market",
+    "finance",
+    "sbi",
+    "company",
+    "investment",
+    "shares",
+    "stock",
+    "rupee",
+    "bank",
+    "ipo",
+    "profit",
+    "sales",
+    "revenue",
+    "bill gates",
+    "amazon",
+    "genpact",
+    "hdfc",
+    "icici",
+    "jpmorgan chase",
+    "fiscal",
+    "tax",
+  ],
+  "Environment & Ecology": [
+    "climate",
+    "pollution",
+    "environment",
+    "global warming",
+    "conservation",
+    "water",
+    "river",
+    "ecology",
+  ],
+  "Science & Technology": [
+    "ai",
+    "tech",
+    "software",
+    "startup",
+    "app",
+    "google",
+    "apple",
+    "microsoft",
+    "elon musk",
+    "tesla",
+    "spacex",
+    "chip",
+    "semiconductor",
+    "nasa",
+    "nuclear",
+    "research",
+    "discovery",
+    "astronomy",
+    "physics",
+    "biology",
+    "science",
+  ],
+  "International Relations": [
+    "iran",
+    "israel",
+    "us",
+    "russia",
+    "china",
+    "pakistan",
+    "ukraine",
+    "conflict",
+    "international",
+    "treaty",
+    "global",
+    "europe",
+    "canada",
+    "hong kong",
+    "middle east",
+    "diplomat",
+    "un",
+  ],
+  "Art & Culture": [
+    "artist",
+    "portrait",
+    "culture",
+    "music",
+    "bollywood",
+    "hollywood",
+    "film",
+    "movie",
+    "actor",
+    "actress",
+    "cinema",
+    "celebrity",
+    "series",
+    "ott",
+    "aamir khan",
+    "hrithik roshan",
+    "ranveer singh",
+    "amitabh bachchan",
+    "sonakshi sinha",
+    "neena gupta",
+    "kuvempu",
+    "sushma thota",
+    "thota vaikuntam",
+    "world music day",
+  ],
+  History: ["history", "kanishka bombing"],
+  "Social Issues": [
+    "women",
+    "gender",
+    "social security",
+    "human rights",
+    "pension",
+    "toilet clinic",
+    "neurodivergence",
+    "parkinson's",
+    "public health",
+    "issues",
+    "migrant",
+    "evacuation",
+  ],
+  "Defence & Security": [
+    "defence",
+    "security",
+    "military",
+    "army",
+    "police",
+    "dgca",
+    "air india",
+    "terror",
+    "bombing",
+    "quds force",
+    "idf",
+  ],
+  "Awards, Persons & Places in News": [
+    "awards",
+    "persons",
+    "places",
+    "in news",
+    "kuvempu",
+    "sushma thota",
+    "thota vaikuntam",
+    "pawan kalyan",
+    "h.d. kumaraswamy",
+    "n. chandrababu naidu",
+    "narendra modi",
+    "r.n. ravi",
+    "nitish kumar",
+    "shahrukh khan",
+    "randeep hooda",
+    "jeff bezos",
+    "lauren sanchez",
+    "vance boelter",
+    "sunjay kapur",
+    "sanam saeed",
+    "mohib mirza",
+    "dorothy shea",
+    "jamie dimon",
+    "priyank kharge",
+    "neeraj chopra",
+    "parag parikh",
+    "shabir shah",
+    "shreya ghoshal",
+    "dr. bhanu mishra",
+    "amitabh bachchan",
+    "yashasvi jaiswal",
+    "rishabh pant",
+    "shubman gill",
+    "sunil gavaskar",
+    "stuart broad",
+    "ben stokes",
+    "michael vaughan",
+    "rahul gandhi",
+    "donald trump",
+    "asim munir",
+    "shehbaz sharif",
+    "maharaja of jaipur sawai padmanabh singh",
+  ],
+  National: [
+    "india",
+    "indian",
+    "delhi",
+    "mumbai",
+    "bengaluru",
+    "karnataka",
+    "jammu",
+    "madurai",
+    "kochi",
+    "bihar",
+    "hyderabad",
+    "ahmedabad",
+    "visakhapatnam",
+    "lok sabha",
+    "state",
+  ],
+  Sports: [
+    "cricket",
+    "football",
+    "match",
+    "team",
+    "player",
+    "score",
+    "tennis",
+    "olympics",
+    "world cup",
+    "ipl",
+    "test",
+    "century",
+    "shubman gill",
+    "rishabh pant",
+    "yashasvi jaiswal",
+    "ben stokes",
+    "super rugby",
+  ],
+  Miscellaneous: [
+    "miscellaneous",
+    "qr codes",
+    "sugar mill",
+    "monetary policy",
+    "startup",
+    "ecommerce",
+    "train services",
+    "footpath",
+  ], // General terms that don't fit other specific categories
+};
+
+// Define the exact enum values from your Mongoose schema to filter assigned categories
+const SCHEMA_ENUM_CATEGORIES = [
+  "Polity & Governance",
+  "Economy",
+  "Environment & Ecology",
+  "Science & Technology",
+  "International Relations",
+  "Art & Culture",
+  "History",
+  "Social Issues",
+  "Defence & Security",
+  "Awards, Persons & Places in News",
+  "National",
+  "Sports",
+  "Miscellaneous",
+  "General",
+];
+
+function assignCategoriesToArticle(title, description) {
+  const text = (title + " " + (description || "")).toLowerCase();
+  const assigned = new Set(); // Use a Set to avoid duplicate categories
+
+  for (const category in categoryKeywords) {
+    const keywords = categoryKeywords[category];
+    for (const keyword of keywords) {
+      if (text.includes(keyword)) {
+        assigned.add(category);
+        // Do NOT break here. An article can belong to multiple categories.
+      }
+    }
+  }
+
+  // Filter assigned categories against the Mongoose schema's enum
+  let filteredCategories = Array.from(assigned).filter((cat) =>
+    SCHEMA_ENUM_CATEGORIES.includes(cat)
+  );
+
+  // If after filtering, no categories are left or assigned is empty, default to "General"
+  if (filteredCategories.length === 0) {
+    return ["General"];
+  }
+
+  return filteredCategories; // Convert Set back to Array
+}
+// --- END NEW: Category Assignment Logic ---
+
 // --- SCRAPER AND NEWS FETCHING CORE FUNCTIONS (exported for index.js use) ---
 
 async function runScraperAndStore(sourceKey, scraperPath, Model) {
@@ -103,12 +396,23 @@ async function runScraperAndStore(sourceKey, scraperPath, Model) {
           "image",
           "a view of", // Often precedes a generic image description
           "image released by", // Often precedes image credit
-          // Add more patterns as observed from logs if needed
+          "representational image only", // From the screenshot
+          "file photo", // From the screenshot
+          "image might show:", // From your earlier logs
+          "stream key mixer", // From your earlier logs
+          "photo :", // Added to catch more image-only titles
+          "representational photo of", // Added to catch more image-only titles
+          "photo used for representation purpose only", // Added to catch more image-only titles
         ];
 
         for (const articleData of articles) {
-          const { title, link, description, imageUrl, categories } =
-            articleData;
+          const {
+            title,
+            link,
+            description,
+            imageUrl,
+            // categories, // Categories will now be assigned in Node.js
+          } = articleData;
 
           const dateString = articleData.publishedAt || articleData.date;
 
@@ -122,7 +426,7 @@ async function runScraperAndStore(sourceKey, scraperPath, Model) {
             continue;
           }
 
-          // --- New: Filter out generic/unsuitable articles for AI ---
+          // --- Filter out generic/unsuitable articles for AI ---
           const lowerCaseTitle = title.toLowerCase().trim();
           const isGenericTitle = genericTitlesToSkip.some((pattern) =>
             lowerCaseTitle.includes(pattern)
@@ -135,7 +439,7 @@ async function runScraperAndStore(sourceKey, scraperPath, Model) {
             skippedArticlesCount++;
             continue; // Skip this article entirely
           }
-          // --- End New Filtering ---
+          // --- End Filtering ---
 
           let parsedDate;
           const tempDate = new Date(dateString);
@@ -148,6 +452,13 @@ async function runScraperAndStore(sourceKey, scraperPath, Model) {
             parsedDate = new Date(); // Use current date as a robust fallback
           }
 
+          // --- NEW: Assign categories here ---
+          const assignedCategories = assignCategoriesToArticle(
+            title,
+            description
+          );
+          // --- End NEW: Assign categories ---
+
           const cleanLink = link.split("?")[0];
           const existingArticle = await Model.findOne({ link: cleanLink });
 
@@ -155,7 +466,6 @@ async function runScraperAndStore(sourceKey, scraperPath, Model) {
             let hasChanged = false;
 
             // --- Enhanced Date Handling ---
-            // Ensure existingArticle.pubDate is a valid Date object or null for comparison
             let verifiedExistingPubDate = null;
             if (existingArticle.pubDate) {
               try {
@@ -172,8 +482,6 @@ async function runScraperAndStore(sourceKey, scraperPath, Model) {
               }
             }
 
-            // Ensure parsedDate is a valid Date object or null for comparison
-            // (It should already be valid due to the fallback above, but defensive check)
             let verifiedNewPubDate = null;
             if (parsedDate) {
               try {
@@ -215,6 +523,16 @@ async function runScraperAndStore(sourceKey, scraperPath, Model) {
               existingArticle.pubDate = parsedDate; // Assign the original parsedDate (which has robust fallback)
               hasChanged = true;
             }
+            // --- NEW: Update categories for existing articles if they've changed ---
+            // Simple array comparison (may need a deeper check if order/duplicates matter)
+            if (
+              JSON.stringify(existingArticle.categories) !==
+              JSON.stringify(assignedCategories)
+            ) {
+              existingArticle.categories = assignedCategories;
+              hasChanged = true;
+            }
+            // --- End NEW ---
 
             if (hasChanged) {
               existingArticle.updatedAt = new Date();
@@ -231,7 +549,7 @@ async function runScraperAndStore(sourceKey, scraperPath, Model) {
               source: sourceKey,
               description: description || null,
               imageUrl: imageUrl || null,
-              categories: categories || [],
+              categories: assignedCategories, // Use the assigned categories here
               createdAt: new Date(),
               updatedAt: new Date(),
             });
@@ -480,7 +798,7 @@ router.get("/bookmarks", verifyFirebaseTokenAndGetUserId, async (req, res) => {
             imageUrl: article.imageUrl || null,
             description: article.description || null,
             publishedAt: article.pubDate || article.publishedAt,
-            categories: article.categories || [],
+            categories: article.categories || [], // Ensure categories are passed through
             source: formatSourceForDisplay(article.source),
           },
         });
@@ -593,7 +911,7 @@ router.post("/bookmark", verifyFirebaseTokenAndGetUserId, async (req, res) => {
         imageUrl: article.imageUrl || null,
         description: article.description || null,
         publishedAt: article.pubDate,
-        categories: article.categories || [],
+        categories: article.categories, // Use the assigned categories here
         source: formatSourceForDisplay(article.source),
       },
     };

@@ -1,14 +1,14 @@
+// Server/models/HindustanTimes.js (Assuming this is a separate file)
+// Note: This model should be in its own file, e.g., HindustanTimes.js
 const mongoose = require("mongoose");
-
-const articleSchema = new mongoose.Schema(
+const hindustanTimesSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
     link: { type: String, unique: true, required: true },
     description: { type: String, default: null },
     imageUrl: { type: String, default: null },
-    content: { type: String, default: null }, // Ensures content field is present and defaults to null
-    // ADDED: questions array - now storing references to questions in a separate 'Question' collection
-    questions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Question' }],
+    content: { type: String, default: null },
+    questions: [{ type: mongoose.Schema.Types.ObjectId, ref: "Question" }],
 
     lastGeneratedQuestionsAt: {
       type: Date,
@@ -23,12 +23,12 @@ const articleSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      lowercase: true, // Ensure source is stored consistently (e.g., 'hindustantimes')
+      lowercase: true,
     },
     isCurrentAffair: {
       type: Boolean,
       default: false,
-      index: true, // Add index for faster queries
+      index: true,
     },
     currentAffairsCategory: {
       type: String,
@@ -45,12 +45,12 @@ const articleSchema = new mongoose.Schema(
         "Social Issues",
         "Miscellaneous",
         "General",
-      ], // Define your categories
+      ],
       default: "General",
     },
     aiCategorizationTimestamp: {
       type: Date,
-      default: null, // To track when AI categorization happened
+      default: null,
     },
     categories: [
       {
@@ -65,12 +65,11 @@ const articleSchema = new mongoose.Schema(
           "History",
           "Social Issues",
           "Defence & Security",
-          "Technology",
-          "World",
-          "National",
           "Awards, Persons & Places in News",
-          "Sports",
-          "Miscellaneous",
+          "National", // Aligned with news.js SCHEMA_ENUM_CATEGORIES
+          "Sports", // Aligned with news.js SCHEMA_ENUM_CATEGORIES
+          "Miscellaneous", // Aligned with news.js SCHEMA_ENUM_CATEGORIES
+          "General", // <--- ADDED: Critical for resolving the validation error
         ],
       },
     ],
@@ -78,10 +77,8 @@ const articleSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Model name should be "HindustanTimes" (capitalized) for consistency with Question.js modelSourceModel.
-// Explicitly define collection name 'hindustantimes'
 module.exports = mongoose.model(
   "HindustanTimes",
-  articleSchema,
+  hindustanTimesSchema,
   "hindustantimes"
 );

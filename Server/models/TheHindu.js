@@ -1,6 +1,8 @@
-const mongoose = require("mongoose");
+// Server/models/TheHindu.js (Assuming this is a separate file)
+// Note: This model should be in its own file, e.g., TheHindu.js
+const mongoose = require("mongoose"); // THIS LINE IS CRUCIAL AND MUST BE PRESENT
 
-const articleSchema = new mongoose.Schema(
+const theHinduSchema = new mongoose.Schema( // Changed to theHinduSchema for clarity
   {
     title: { type: String, required: true },
     link: { type: String, unique: true, required: true },
@@ -13,24 +15,21 @@ const articleSchema = new mongoose.Schema(
     description: { type: String, default: null },
     imageUrl: { type: String, default: null },
     content: { type: String, default: null }, // Stores full article content
-    // ADDED: questions array - now storing references to questions in a separate 'Question' collection
     questions: [{ type: mongoose.Schema.Types.ObjectId, ref: "Question" }],
 
     lastGeneratedQuestionsAt: {
-      // Timestamp when questions were last generated
       type: Date,
     },
     questionsGenerationFailed: {
-      // Flag if question generation failed
       type: Boolean,
       default: false,
     },
-    lastScrapedContentAt: { type: Date, default: null }, // Timestamp when full content was last successfully scraped
+    lastScrapedContentAt: { type: Date, default: null },
     contentScrapeFailed: { type: Boolean, default: false },
     isCurrentAffair: {
       type: Boolean,
       default: false,
-      index: true, // Add index for faster queries
+      index: true,
     },
     currentAffairsCategory: {
       type: String,
@@ -47,12 +46,12 @@ const articleSchema = new mongoose.Schema(
         "Social Issues",
         "Miscellaneous",
         "General",
-      ], // Define your categories
+      ],
       default: "General",
     },
     aiCategorizationTimestamp: {
       type: Date,
-      default: null, // To track when AI categorization happened
+      default: null,
     },
     categories: [
       {
@@ -68,11 +67,10 @@ const articleSchema = new mongoose.Schema(
           "Social Issues",
           "Defence & Security",
           "Awards, Persons & Places in News",
-          "Technology",
-          "World",
           "National",
           "Sports",
           "Miscellaneous",
+          "General",
         ],
       },
     ],
@@ -80,4 +78,4 @@ const articleSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model("TheHindu", articleSchema, "hindus"); // Changed model name to "TheHindu" for consistency with contentScraper.js 'modelName' enum, and specify collection 'hindus'
+module.exports = mongoose.model("TheHindu", theHinduSchema, "hindus"); // Changed model name to "TheHindu" and uses theHinduSchema

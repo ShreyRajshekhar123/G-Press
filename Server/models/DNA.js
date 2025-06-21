@@ -1,3 +1,4 @@
+// Server/models/DNA.js
 const mongoose = require("mongoose");
 
 const dnaSchema = new mongoose.Schema(
@@ -7,19 +8,16 @@ const dnaSchema = new mongoose.Schema(
     description: { type: String, default: null },
     imageUrl: { type: String, default: null },
     content: { type: String, default: null }, // Ensures content field is present and defaults to null
-    // ADDED: questions array - now storing references to questions in a separate 'Question' collection
     questions: [{ type: mongoose.Schema.Types.ObjectId, ref: "Question" }],
 
     lastGeneratedQuestionsAt: {
-      // Timestamp when questions were last generated
       type: Date,
     },
     questionsGenerationFailed: {
-      // Flag if question generation failed
       type: Boolean,
       default: false,
     },
-    lastScrapedContentAt: { type: Date, default: null }, // Timestamp when full content was last successfully scraped
+    lastScrapedContentAt: { type: Date, default: null },
     contentScrapeFailed: { type: Boolean, default: false },
     source: {
       type: String,
@@ -30,7 +28,7 @@ const dnaSchema = new mongoose.Schema(
     isCurrentAffair: {
       type: Boolean,
       default: false,
-      index: true, // Add index for faster queries
+      index: true,
     },
     currentAffairsCategory: {
       type: String,
@@ -47,12 +45,12 @@ const dnaSchema = new mongoose.Schema(
         "Social Issues",
         "Miscellaneous",
         "General",
-      ], // Define your categories
+      ],
       default: "General",
     },
     aiCategorizationTimestamp: {
       type: Date,
-      default: null, // To track when AI categorization happened
+      default: null,
     },
     categories: [
       {
@@ -68,11 +66,10 @@ const dnaSchema = new mongoose.Schema(
           "Social Issues",
           "Defence & Security",
           "Awards, Persons & Places in News",
-          "Technology",
-          "World",
-          "National",
-          "Sports",
-          "Miscellaneous",
+          "National", // Aligned with news.js SCHEMA_ENUM_CATEGORIES
+          "Sports", // Aligned with news.js SCHEMA_ENUM_CATEGORIES
+          "Miscellaneous", // Aligned with news.js SCHEMA_ENUM_CATEGORIES
+          "General", // <--- ADDED: Critical for resolving the validation error
         ],
       },
     ],
@@ -80,8 +77,5 @@ const dnaSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Model name should be "DNA" (capitalized) to match 'enum' in Question.js modelSourceModel
-// Explicitly define collection name 'dnas'
 const DNA = mongoose.model("DNA", dnaSchema, "dnas");
-
 module.exports = DNA;
