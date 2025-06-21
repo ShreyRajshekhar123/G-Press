@@ -1,46 +1,67 @@
-// src/App.js
+// src/App.js - No changes needed here, it's already correct for the updates.
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Home from "./pages/Home";
 import Overview from "./pages/Overview";
 import SearchPage from "./pages/SearchPage";
-import "./index.css"; // For Tailwind CSS imports
+import QuestionsPage from "./pages/QuestionsPage";
+import ProfilePage from "./pages/ProfilePage";
+import SettingsHelpPage from "./pages/SettingsHelpPage";
+import PrivateRoute from "./components/PrivateRoute";
+import FAQPage from "./pages/FAQPage";
 
-// Add these two imports for react-toastify
+import "./index.css";
+
 import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css"; // This is the CSS for react-toastify
+import "react-toastify/dist/ReactToastify.css";
+
+import { ThemeProvider } from "./contexts/ThemeContext";
 
 function App() {
   return (
-    <Router>
-      {/* Changed BrowserRouter to Router for common convention */}
-      <Routes>
-        <Route path="/" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/overview" element={<Overview />} />
-        <Route path="/home" element={<Home />} />
-        <Route path="/search" element={<SearchPage />} />
-        {/* News routes, handled by Home component's logic */}
-        <Route path="/news/:source" element={<Home />} />
-        <Route path="/news/current-affairs" element={<Home />} />
-        <Route path="/news/all" element={<Home />} />
-        <Route path="/news/bookmarks" element={<Home />} />
-      </Routes>
-      {/* Add ToastContainer here, typically at the root of your application */}
-      <ToastContainer
-        position="bottom-right" // Where the toasts will appear
-        autoClose={3000} // How long toasts stay (in ms)
-        hideProgressBar={false} // Show or hide progress bar
-        newestOnTop={false} // Stack new toasts on top of old ones
-        closeOnClick // Close toast when clicked
-        rtl={false} // Right-to-left support
-        pauseOnFocusLoss // Pause toast autoClose when window loses focus
-        draggable // Allow dragging toasts
-        pauseOnHover // Pause toast autoClose on hover
-      />
-    </Router>
+    <ThemeProvider>
+      {/* Wrap your entire application with ThemeProvider */}
+      <Router>
+        <Routes>
+          <Route path="/" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/overview" element={<Overview />} />
+
+          <Route element={<PrivateRoute />}>
+            <Route path="/home" element={<Home />} />
+            <Route path="/news/all" element={<Home />} />
+            <Route path="/news/bookmarks" element={<Home />} />
+            <Route path="/news/current-affairs" element={<Home />} />
+            <Route path="/news/:source" element={<Home />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/questions/:articleId" element={<QuestionsPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/settings-help" element={<SettingsHelpPage />} />
+            <Route path="/faq" element={<FAQPage />} />
+          </Route>
+
+          <Route path="*" element={<Navigate to="/home" />} />
+        </Routes>
+        <ToastContainer
+          position="bottom-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+        />
+      </Router>
+    </ThemeProvider>
   );
 }
 

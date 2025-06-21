@@ -4,14 +4,56 @@ const articleSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
     link: { type: String, unique: true, required: true },
-    // --- NEW FIELD: Source Identifier ---
     source: {
       type: String,
-      required: true, // Make sure it's always present
+      required: true,
       trim: true,
-      lowercase: true, // Store as lowercase for consistency (e.g., 'hindu')
+      lowercase: true,
     },
-    // --- END NEW FIELD ---
+    description: { type: String, default: null },
+    imageUrl: { type: String, default: null },
+    content: { type: String, default: null }, // Stores full article content
+    // ADDED: questions array - now storing references to questions in a separate 'Question' collection
+    questions: [{ type: mongoose.Schema.Types.ObjectId, ref: "Question" }],
+
+    lastGeneratedQuestionsAt: {
+      // Timestamp when questions were last generated
+      type: Date,
+    },
+    questionsGenerationFailed: {
+      // Flag if question generation failed
+      type: Boolean,
+      default: false,
+    },
+    lastScrapedContentAt: { type: Date, default: null }, // Timestamp when full content was last successfully scraped
+    contentScrapeFailed: { type: Boolean, default: false },
+    isCurrentAffair: {
+      type: Boolean,
+      default: false,
+      index: true, // Add index for faster queries
+    },
+    currentAffairsCategory: {
+      type: String,
+      enum: [
+        "Politics",
+        "Economy",
+        "International Relations",
+        "Science & Technology",
+        "Environment",
+        "Sports",
+        "Awards & Honors",
+        "Defence",
+        "Judiciary",
+        "Social Issues",
+        "Miscellaneous",
+        "General",
+      ], // Define your categories
+      default: "General",
+    },
+    aiCategorizationTimestamp: {
+      type: Date,
+      default: null, // To track when AI categorization happened
+    },
     categories: [
       {
         type: String,
@@ -26,20 +68,16 @@ const articleSchema = new mongoose.Schema(
           "Social Issues",
           "Defence & Security",
           "Awards, Persons & Places in News",
+          "Technology",
+          "World",
+          "National",
           "Sports",
           "Miscellaneous",
         ],
-        default: [],
       },
     ],
-    // You might also want to add these fields if your scraper provides them
-    // description: { type: String },
-    // imageUrl: { type: String },
-    // publishedAt: { type: Date, default: Date.now },
-    // author: { type: String },
-    // content: { type: String } // Full content of the article
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model("Hindu", articleSchema); // Changed model name to "Hindu" for consistency
+module.exports = mongoose.model("TheHindu", articleSchema, "hindus"); // Changed model name to "TheHindu" for consistency with contentScraper.js 'modelName' enum, and specify collection 'hindus'

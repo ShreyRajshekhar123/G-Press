@@ -1,22 +1,57 @@
-// C:\Users\OKKKK\Desktop\G-Press\G-Press\Server\models\hindustantimes.js
-
 const mongoose = require("mongoose");
 
 const articleSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
     link: { type: String, unique: true, required: true },
-    description: { type: String }, // Assuming scraper extracts this
-    imageUrl: { type: String }, // Assuming scraper extracts this
-    content: { type: String }, // Assuming scraper extracts this
-    // --- ADDED FIELD: Source Identifier ---
+    description: { type: String, default: null },
+    imageUrl: { type: String, default: null },
+    content: { type: String, default: null }, // Ensures content field is present and defaults to null
+    // ADDED: questions array - now storing references to questions in a separate 'Question' collection
+    questions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Question' }],
+
+    lastGeneratedQuestionsAt: {
+      type: Date,
+    },
+    questionsGenerationFailed: {
+      type: Boolean,
+      default: false,
+    },
+    lastScrapedContentAt: { type: Date, default: null },
+    contentScrapeFailed: { type: Boolean, default: false },
     source: {
       type: String,
       required: true,
       trim: true,
-      lowercase: true, // Ensure source is stored consistently (e.g., 'hindustan-times')
+      lowercase: true, // Ensure source is stored consistently (e.g., 'hindustantimes')
     },
-    // --- END ADDED FIELD ---
+    isCurrentAffair: {
+      type: Boolean,
+      default: false,
+      index: true, // Add index for faster queries
+    },
+    currentAffairsCategory: {
+      type: String,
+      enum: [
+        "Politics",
+        "Economy",
+        "International Relations",
+        "Science & Technology",
+        "Environment",
+        "Sports",
+        "Awards & Honors",
+        "Defence",
+        "Judiciary",
+        "Social Issues",
+        "Miscellaneous",
+        "General",
+      ], // Define your categories
+      default: "General",
+    },
+    aiCategorizationTimestamp: {
+      type: Date,
+      default: null, // To track when AI categorization happened
+    },
     categories: [
       {
         type: String,
@@ -30,17 +65,23 @@ const articleSchema = new mongoose.Schema(
           "History",
           "Social Issues",
           "Defence & Security",
+          "Technology",
+          "World",
+          "National",
           "Awards, Persons & Places in News",
           "Sports",
           "Miscellaneous",
         ],
-        default: [],
       },
     ],
   },
   { timestamps: true }
 );
 
-// Model name should be "HindustanTimes" for consistency with sourceConfig and User model lookup.
-// Mongoose will automatically create a collection named 'hindustantimes' from this.
-module.exports = mongoose.model("HindustanTimes", articleSchema);
+// Model name should be "HindustanTimes" (capitalized) for consistency with Question.js modelSourceModel.
+// Explicitly define collection name 'hindustantimes'
+module.exports = mongoose.model(
+  "HindustanTimes",
+  articleSchema,
+  "hindustantimes"
+);

@@ -1,8 +1,53 @@
+/* src/index.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-gray-900 text-white;
-  font-family: "Inter", sans-serif;
+/* Base styles / Light Theme Defaults */
+:root {
+  --color-bg-primary: #ffffff; /* Typically your main background color */
+  --color-bg-secondary: #f3f4f6; /* Used for cards, secondary sections */
+  --color-text-primary: #1f2937; /* Main text color */
+  --color-text-secondary: #4b5563; /* Secondary text, descriptions */
+  --color-blue-primary: #2563eb; /* Your primary blue for buttons, links */
+  --color-blue-secondary: #bfdbfe; /* Lighter blue, sometimes for hover states */
+  --color-gray-border: #d1d5db; /* Border colors */
+  --color-sidebar-bg: #1f2937; /* Specific for sidebar background in light mode if it contrasts */
+  --color-sidebar-text: #e5e7eb; /* Sidebar text in light mode */
+  --color-sidebar-active-bg: #2563eb; /* Active sidebar item background */
 }
+
+/* Dark Theme Overrides */
+html.dark {
+  --color-bg-primary: #1a202c; /* Equivalent to bg-gray-900 */
+  --color-bg-secondary: #2d3748; /* Equivalent to bg-gray-800 */
+  --color-text-primary: #e2e8f0; /* Equivalent to text-gray-200 / text-white */
+  --color-text-secondary: #a0aec0; /* Equivalent to text-gray-400 */
+  --color-blue-primary: #60a5fa; /* Equivalent to text-blue-400 or bg-blue-500 */
+  --color-blue-secondary: #1e3a8a; /* Darker blue for contrast */
+  --color-gray-border: #4a5568; /* Darker border color */
+  --color-sidebar-bg: #1a202c; /* Equivalent to bg-gray-900 for sidebar */
+  --color-sidebar-text: #a0aec0; /* Lighter text for dark sidebar */
+  --color-sidebar-active-bg: #3b82f6; /* Active sidebar item background in dark mode */
+}
+
+/* Apply these CSS variables directly to the body and other elements */
+body {
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-family: "Inter", sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease; /* Smooth transition for theme change */
+}
+
+/* Important: You will need to replace hardcoded Tailwind classes
+   in your components (e.g., Home.jsx, Sidebar.jsx, NewsCard.jsx, etc.)
+   with either:
+   1. The new custom Tailwind colors (if you configured tailwind.config.js)
+   2. Direct CSS variables using `style={{ backgroundColor: 'var(--color-bg-primary)' }}`
+   3. Custom CSS classes you define here that use the variables.
+
+   For example, if a div has `className="bg-gray-800 p-8 text-white"`, you'd change it to:
+   `className="bg-[var(--color-bg-secondary)] p-8 text-[var(--color-text-primary)]"`
+   OR (if you set up `tailwind.config.js` with custom colors):
+   `className="bg-secondary p-8 text-text-primary"`
+*/

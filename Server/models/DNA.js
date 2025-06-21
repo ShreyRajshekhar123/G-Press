@@ -1,23 +1,59 @@
-// C:\Users\OKKKK\Desktop\G-Press\G-Press\Server\models\dna.js
-
 const mongoose = require("mongoose");
 
 const dnaSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
     link: { type: String, unique: true, required: true },
-    description: { type: String },
-    imageUrl: { type: String },
-    content: { type: String },
-    // Removed: createdAt: { type: Date, default: Date.now }, // Redundant with timestamps: true
-    // --- ADDED FIELD: Source Identifier ---
+    description: { type: String, default: null },
+    imageUrl: { type: String, default: null },
+    content: { type: String, default: null }, // Ensures content field is present and defaults to null
+    // ADDED: questions array - now storing references to questions in a separate 'Question' collection
+    questions: [{ type: mongoose.Schema.Types.ObjectId, ref: "Question" }],
+
+    lastGeneratedQuestionsAt: {
+      // Timestamp when questions were last generated
+      type: Date,
+    },
+    questionsGenerationFailed: {
+      // Flag if question generation failed
+      type: Boolean,
+      default: false,
+    },
+    lastScrapedContentAt: { type: Date, default: null }, // Timestamp when full content was last successfully scraped
+    contentScrapeFailed: { type: Boolean, default: false },
     source: {
       type: String,
       required: true,
       trim: true,
       lowercase: true, // Ensure source is stored consistently (e.g., 'dna')
     },
-    // --- END ADDED FIELD ---
+    isCurrentAffair: {
+      type: Boolean,
+      default: false,
+      index: true, // Add index for faster queries
+    },
+    currentAffairsCategory: {
+      type: String,
+      enum: [
+        "Politics",
+        "Economy",
+        "International Relations",
+        "Science & Technology",
+        "Environment",
+        "Sports",
+        "Awards & Honors",
+        "Defence",
+        "Judiciary",
+        "Social Issues",
+        "Miscellaneous",
+        "General",
+      ], // Define your categories
+      default: "General",
+    },
+    aiCategorizationTimestamp: {
+      type: Date,
+      default: null, // To track when AI categorization happened
+    },
     categories: [
       {
         type: String,
@@ -32,19 +68,20 @@ const dnaSchema = new mongoose.Schema(
           "Social Issues",
           "Defence & Security",
           "Awards, Persons & Places in News",
+          "Technology",
+          "World",
+          "National",
           "Sports",
           "Miscellaneous",
         ],
-        default: [],
       },
     ],
   },
   { timestamps: true }
 );
 
-// Changed model name to "Dna" from "DNA" for consistency.
-// Mongoose will automatically create a collection named 'dnas'
-// based on this model name.
-const Dna = mongoose.model("Dna", dnaSchema);
+// Model name should be "DNA" (capitalized) to match 'enum' in Question.js modelSourceModel
+// Explicitly define collection name 'dnas'
+const DNA = mongoose.model("DNA", dnaSchema, "dnas");
 
-module.exports = Dna;
+module.exports = DNA;

@@ -1,5 +1,3 @@
-// C:\Users\OKKKK\Desktop\G-Press\G-Press\Server\models\indianexpress.js
-
 const mongoose = require("mongoose");
 
 const indianExpressSchema = new mongoose.Schema(
@@ -10,18 +8,54 @@ const indianExpressSchema = new mongoose.Schema(
       unique: true,
       required: true,
     },
-    // --- Existing and Correct: Source Identifier ---
     source: {
       type: String,
       required: true,
       trim: true,
-      lowercase: true, // Ensure source is stored consistently (e.g., 'ie')
+      lowercase: true, // Ensure source is stored consistently (e.g., 'indianexpress')
     },
-    // --- ADDED OPTIONAL FIELDS (if your scraper provides them) ---
-    description: { type: String },
-    imageUrl: { type: String },
-    content: { type: String },
-    // --- END ADDED OPTIONAL FIELDS ---
+    description: { type: String, default: null },
+    imageUrl: { type: String, default: null },
+    content: { type: String, default: null }, // Ensures content field is present and defaults to null
+    // ADDED: questions array - now storing references to questions in a separate 'Question' collection
+    questions: [{ type: mongoose.Schema.Types.ObjectId, ref: "Question" }],
+
+    lastGeneratedQuestionsAt: {
+      type: Date,
+    },
+    questionsGenerationFailed: {
+      type: Boolean,
+      default: false,
+    },
+    lastScrapedContentAt: { type: Date, default: null },
+    contentScrapeFailed: { type: Boolean, default: false },
+    isCurrentAffair: {
+      type: Boolean,
+      default: false,
+      index: true, // Add index for faster queries
+    },
+    currentAffairsCategory: {
+      type: String,
+      enum: [
+        "Politics",
+        "Economy",
+        "International Relations",
+        "Science & Technology",
+        "Environment",
+        "Sports",
+        "Awards & Honors",
+        "Defence",
+        "Judiciary",
+        "Social Issues",
+        "Miscellaneous",
+        "General",
+      ], // Define your categories
+      default: "General",
+    },
+    aiCategorizationTimestamp: {
+      type: Date,
+      default: null, // To track when AI categorization happened
+    },
     categories: [
       {
         type: String,
@@ -36,19 +70,22 @@ const indianExpressSchema = new mongoose.Schema(
           "Social Issues",
           "Defence & Security",
           "Awards, Persons & Places in News",
+          "Technology",
+          "World",
+          "National",
           "Sports",
           "Miscellaneous",
         ],
-        default: [],
       },
     ],
   },
   { timestamps: true }
 );
 
-// Preserve the explicit collection name, and ensure model name is "IndianExpress".
+// Model name should be "IndianExpress" (capitalized) for consistency with Question.js modelSourceModel.
+// Explicitly define collection name 'indianexpress'
 module.exports = mongoose.model(
-  "IndianExpress", // Consistent model name (capitalized)
+  "IndianExpress",
   indianExpressSchema,
-  "indianexpress" // Explicit collection name (lowercase)
+  "indianexpress"
 );

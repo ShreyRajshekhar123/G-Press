@@ -7,103 +7,129 @@ import {
   FaSignOutAlt,
   FaNewspaper,
   FaSearch,
-} from "react-icons/fa"; // ✅ Added FaSearch
+  FaCog, // Icon for Settings
+  FaUser, // Icon for Profile
+} from "react-icons/fa";
 
 export default function Sidebar({
   activeTab,
   setActiveTab,
   onLogout,
   isSidebarOpen,
-  toggleSidebar,
 }) {
   const handleTabClick = (tabName) => {
     setActiveTab(tabName);
-    // Optional: Close sidebar on small screens after clicking a tab
-    // if (window.innerWidth < 768) {
-    //   toggleSidebar();
-    // }
   };
 
   return (
     <div
-      className={`fixed top-0 left-0 h-full w-64 bg-gray-800 text-white p-6
-        transform transition-transform duration-300 ease-in-out
-        ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
-        z-50 border-r border-gray-700
-      `}
+      className={`
+                bg-app-sidebar-bg text-app-sidebar-text p-6 shadow-lg
+                flex flex-col justify-between border-r border-app-gray-border
+                transition-all duration-300 ease-in-out
+                overflow-y-auto
+
+                hidden
+                md:flex
+                md:fixed md:top-0 md:bottom-0 md:left-0 md:w-64 md:z-30
+                ${isSidebarOpen ? "md:translate-x-0" : "md:-translate-x-full"}
+            `}
     >
       <div className="flex items-center mb-10">
-        <img src="/logo.png" alt="G-Press Logo" className="h-8 w-8 mr-3" />
-        <h1 className="text-2xl font-bold text-blue-400">G-Press</h1>
+        <h1 className="text-2xl font-bold text-app-blue-main">G-Press</h1>
       </div>
 
-      <nav className="space-y-4">
-        {/* Current Affairs Link (typically the default home/dashboard view) */}
+      <nav className="space-y-4 flex-grow">
         <Link
-          to="/home" // Link to the home route
+          to="/home"
           className={`w-full text-left py-2 px-4 rounded-lg flex items-center transition-colors duration-200
-            ${
-              // Highlight if current-affairs tab is active, or if the path is /home and no specific tab is selected
-              activeTab === "current-affairs"
-                ? "bg-blue-600 text-white"
-                : "hover:bg-gray-700 text-gray-300"
-            }`}
-          onClick={() => handleTabClick("current-affairs")} // Still update activeTab for highlighting
+                         ${
+                           activeTab === "current-affairs" ||
+                           (activeTab === "all" &&
+                             window.location.pathname === "/home")
+                             ? "bg-app-sidebar-active-bg text-app-text-primary"
+                             : "hover:bg-app-bg-secondary text-app-sidebar-text"
+                         }`}
+          onClick={() => handleTabClick("current-affairs")}
         >
           <FaNewspaper className="mr-3 text-lg" />
           <span>Current Affairs</span>
         </Link>
 
-        {/* All News Link */}
         <Link
-          to="/news/all" // Link to the all news route
+          to="/news/all"
           className={`w-full text-left py-2 px-4 rounded-lg flex items-center transition-colors duration-200
-            ${
-              activeTab === "all"
-                ? "bg-blue-600 text-white"
-                : "hover:bg-gray-700 text-gray-300"
-            }`}
-          onClick={() => handleTabClick("all")} // Still update activeTab for highlighting
+                         ${
+                           activeTab === "all"
+                             ? "bg-app-sidebar-active-bg text-app-text-primary"
+                             : "hover:bg-app-bg-secondary text-app-sidebar-text"
+                         }`}
+          onClick={() => handleTabClick("all")}
         >
           <FaHome className="mr-3 text-lg" />
           <span>All News</span>
         </Link>
 
-        {/* Bookmarks Link */}
         <Link
-          to="/news/bookmarks" // Link to the bookmarks route
+          to="/news/bookmarks"
           className={`w-full text-left py-2 px-4 rounded-lg flex items-center transition-colors duration-200
-            ${
-              activeTab === "bookmarks"
-                ? "bg-blue-600 text-white"
-                : "hover:bg-gray-700 text-gray-300"
-            }`}
-          onClick={() => handleTabClick("bookmarks")} // Still update activeTab for highlighting
+                         ${
+                           activeTab === "bookmarks"
+                             ? "bg-app-sidebar-active-bg text-app-text-primary"
+                             : "hover:bg-app-bg-secondary text-app-sidebar-text"
+                         }`}
+          onClick={() => handleTabClick("bookmarks")}
         >
           <FaBookmark className="mr-3 text-lg" />
           <span>Bookmarks</span>
         </Link>
 
-        {/* ✅ New Search Link */}
         <Link
-          to="/search" // Link to the new dedicated search page
+          to="/search"
           className={`w-full text-left py-2 px-4 rounded-lg flex items-center transition-colors duration-200
-            ${
-              activeTab === "search" // Set this to "search" in SearchPage.jsx to highlight
-                ? "bg-blue-600 text-white"
-                : "hover:bg-gray-700 text-gray-300"
-            }`}
-          onClick={() => handleTabClick("search")} // Update activeTab to highlight "Search"
+                         ${
+                           activeTab === "search"
+                             ? "bg-app-sidebar-active-bg text-app-text-primary"
+                             : "hover:bg-app-bg-secondary text-app-sidebar-text"
+                         }`}
+          onClick={() => handleTabClick("search")}
         >
           <FaSearch className="mr-3 text-lg" />
           <span>Search News</span>
         </Link>
+
+        <Link
+          to="/settings-help"
+          className={`w-full text-left py-2 px-4 rounded-lg flex items-center transition-colors duration-200
+                         ${
+                           activeTab === "settings-help"
+                             ? "bg-app-sidebar-active-bg text-app-text-primary"
+                             : "hover:bg-app-bg-secondary text-app-sidebar-text"
+                         }`}
+          onClick={() => handleTabClick("settings-help")}
+        >
+          <FaCog className="mr-3 text-lg" />
+          <span>Settings & Help</span>
+        </Link>
+
+        <Link
+          to="/profile"
+          className={`w-full text-left py-2 px-4 rounded-lg flex items-center transition-colors duration-200
+                         ${
+                           activeTab === "profile"
+                             ? "bg-app-sidebar-active-bg text-app-text-primary"
+                             : "hover:bg-app-bg-secondary text-app-sidebar-text"
+                         }`}
+          onClick={() => handleTabClick("profile")}
+        >
+          <FaUser className="mr-3 text-lg" />
+          <span>Profile</span>
+        </Link>
       </nav>
 
-      {/* Logout button positioned at the bottom */}
-      <div className="absolute bottom-6 left-0 w-full px-6">
+      <div className="mt-auto pt-4 border-t border-app-gray-border">
         <button
-          className="w-full text-left py-2 px-4 rounded-lg flex items-center bg-red-600 hover:bg-red-700 text-white transition-colors duration-200"
+          className="w-full text-left py-2 px-4 rounded-lg flex items-center bg-red-600 hover:bg-red-700 text-white transition-colors duration-200" // Logout button still hardcoded red/white for emphasis
           onClick={onLogout}
         >
           <FaSignOutAlt className="mr-3 text-lg" />
