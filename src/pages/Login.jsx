@@ -1,90 +1,182 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+// src/pages/Login.jsx
+import React, { useState, useEffect } from "react";
 import { auth } from "../firebase";
 import {
-  signInWithEmailAndPassword,
-  signInWithPopup,
   GoogleAuthProvider,
+  signInWithPopup,
+  signInWithEmailAndPassword,
 } from "firebase/auth";
+import { useNavigate, Link } from "react-router-dom"; // Import Link
+import { toast } from "react-toastify";
+import axios from "axios";
 
 export default function Login() {
+  // Renamed from Auth to Login as per your App.js
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
 
-  const provider = new GoogleAuthProvider();
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        navigate("/home");
+      }
+    });
+    return () => unsubscribe();
+  }, [navigate]);
 
-  const handleEmailLogin = async (e) => {
-    e.preventDefault();
+  const handleGoogleLogin = async () => {
+    setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      navigate("/home");
-    } catch (err) {
-      setError("Invalid email or password");
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      console.log("Google Sign-In Successful:", user);
+
+      const token = await user.getIdToken();
+
+      await axios.post(
+        `${process.env.REACT_APP_BACKEND_URI}api/news/sync-user`,
+        {
+          firebaseUid: user.uid,
+          displayName: user.displayName,
+          email: user.email,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      toast.success("Successfully logged in with Google!");
+      // Check localStorage for 'visited' flag to decide navigation
+      const firstTime = localStorage.getItem("visited");
+      if (!firstTime) {
+        localStorage.setItem("visited", "true");
+        navigate("/overview"); // Navigate to overview for first-time users
+      } else {
+        navigate("/home"); // Navigate to home for returning users
+      }
+    } catch (error) {
+      console.error("Google Sign-In Error:", error);
+      toast.error(`Google login failed: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleEmailLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
     try {
-      await signInWithPopup(auth, provider);
-      const firstTime = localStorage.getItem("visited");
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      const user = userCredential.user;
+      console.log("Email/Password Sign-In Successful:", user);
 
+      const token = await user.getIdToken();
+
+      await axios.post(
+        `${process.env.REACT_APP_BACKEND_URI}api/news/sync-user`,
+        {
+          firebaseUid: user.uid,
+          displayName: user.displayName,
+          email: user.email,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      toast.success("Successfully logged in with Email!");
+      // Check localStorage for 'visited' flag to decide navigation
+      const firstTime = localStorage.getItem("visited");
       if (!firstTime) {
         localStorage.setItem("visited", "true");
-        navigate("/overview");
-      } else navigate("/home");
-    } catch (err) {
-      setError("Google sign-in failed");
+        navigate("/overview"); // Navigate to overview for first-time users
+      } else {
+        navigate("/home"); // Navigate to home for returning users
+      }
+    } catch (error) {
+      console.error("Email/Password Sign-In Error:", error);
+      let errorMessage = "Login failed. Please check your credentials.";
+      if (error.code === "auth/invalid-email") {
+        errorMessage = "Invalid email address.";
+      } else if (error.code === "auth/user-disabled") {
+        errorMessage = "Your account has been disabled.";
+      } else if (error.code === "auth/user-not-found") {
+        errorMessage = "No user found with this email. Please sign up.";
+      } else if (error.code === "auth/wrong-password") {
+        errorMessage = "Incorrect password.";
+      }
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex justify-center items-center h-screen bg-gray-900 text-white">
-      <form
-        onSubmit={handleEmailLogin}
-        className="bg-gray-800 p-8 rounded-xl shadow-xl space-y-4 w-96"
-      >
-        <h1 className="text-2xl font-bold text-center text-white">
-          Login to NewsHub
+    <div className="flex items-center justify-center min-h-screen bg-app-bg-primary text-app-text-primary">
+      <div className="bg-app-bg-secondary p-8 rounded-xl shadow-lg w-full max-w-md text-center border border-app-gray-border">
+        <h1 className="text-3xl font-bold text-app-blue-main mb-6">
+          Login to G-PRESS
         </h1>
-
-        <input
-          type="email"
-          placeholder="Email"
-          className="w-full p-2 border border-gray-600 rounded bg-gray-700 text-white placeholder-gray-400"
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          className="w-full p-2 border border-gray-600 rounded bg-gray-700 text-white placeholder-gray-400"
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        {error && <p className="text-red-500 text-sm">{error}</p>}
+        <form onSubmit={handleEmailLogin}>
+          <div className="mb-4">
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full p-3 rounded-lg bg-app-bg-primary text-app-text-primary border border-app-gray-border focus:outline-none focus:ring-2 focus:ring-app-blue-main"
+              required
+            />
+          </div>
+          <div className="mb-6">
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-3 rounded-lg bg-app-bg-primary text-app-text-primary border border-app-gray-border focus:outline-none focus:ring-2 focus:ring-app-blue-main"
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            className="w-full py-3 px-4 rounded-lg font-bold text-white bg-app-blue-main hover:bg-app-blue-light transition-colors duration-200"
+            disabled={loading}
+          >
+            {loading ? "Logging in..." : "Login with Email"}
+          </button>
+        </form>
+        <div className="my-6 text-app-text-secondary">or</div>
         <button
-          type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
-        >
-          Login with Email
-        </button>
-
-        <div className="text-center text-gray-400">or</div>
-
-        <button
-          type="button"
           onClick={handleGoogleLogin}
-          className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600 flex justify-center items-center gap-2 transition"
+          className="w-full py-3 px-4 rounded-lg font-bold text-white bg-red-500 hover:bg-red-600 transition-colors duration-200 flex items-center justify-center"
+          disabled={loading}
         >
           <img
-            src="https://img.icons8.com/color/16/000000/google-logo.png"
+            src="https://img.icons8.com/color/24/000000/google-logo.png"
             alt="Google logo"
+            className="mr-2"
           />
-          Sign in with Google
+          {loading ? "Signing in..." : "Sign in with Google"}
         </button>
-      </form>
+
+        {/* New "Create an Account" link */}
+        <p className="mt-6 text-app-text-secondary text-sm">
+          Don't have an account?{" "}
+          <Link to="/register" className="text-app-blue-main hover:underline">
+            Create one here
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }

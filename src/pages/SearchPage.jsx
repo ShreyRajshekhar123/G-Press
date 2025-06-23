@@ -1,13 +1,13 @@
 // src/pages/SearchPage.jsx
 import React, { useState, useEffect, useCallback } from "react";
-import axios from "axios"; // Make sure axios is imported
+import axios from "axios";
 import { auth } from "../firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import NewsFeed from "../components/NewsFeed";
 import Sidebar from "../components/Sidebar";
-import { FaBars, FaTimes, FaSearch } from "react-icons/fa"; // Import FaSearch for the title
-import { toast } from "react-toastify"; // Import toast for user feedback
+import { FaBars, FaTimes, FaSearch, FaSpinner } from "react-icons/fa";
+import { toast } from "react-toastify";
 
 export default function SearchPage() {
   const navigate = useNavigate();
@@ -15,14 +15,35 @@ export default function SearchPage() {
   const [loadingUser, setLoadingUser] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [searchResults, setSearchResults] = useState([]); // State to store search results
-  const [loadingSearch, setLoadingSearch] = useState(false); // Loading state for search API call
-  const [searchError, setSearchError] = useState(null); // Error state for search API call
-  const [userBookmarks, setUserBookmarks] = useState([]); // Needed for NewsFeed to show bookmark status
+  const [searchResults, setSearchResults] = useState([]);
+  const [loadingSearch, setLoadingSearch] = useState(false);
+  const [searchError, setSearchError] = useState(null);
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [userBookmarks, setUserBookmarks] = useState([]);
 
-  // Effect to listen for Firebase auth state changes
+  // Sidebar state: Open on desktop (md+), hidden on mobile by default
+  // Initial state derived from window width for desktop, otherwise false (closed for mobile)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
+
+  // Effect to adjust sidebar state on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setIsSidebarOpen(true); // Always open on desktop
+      } else {
+        setIsSidebarOpen(false); // Default to closed on mobile
+      }
+    };
+
+    // Set initial state based on current window size
+    setIsSidebarOpen(window.innerWidth >= 768);
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []); // Empty dependency array means this runs once on mount
+
+  const debounceTimeoutRef = React.useRef(null);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -30,7 +51,7 @@ export default function SearchPage() {
         console.log("Firebase user detected on SearchPage:", user.uid);
       } else {
         setCurrentUser(null);
-        navigate("/"); // Redirect to login if not authenticated
+        navigate("/");
       }
       setLoadingUser(false);
     });
@@ -39,23 +60,20 @@ export default function SearchPage() {
 
   const userId = currentUser ? currentUser.uid : null;
 
-  // Fetch user bookmarks for NewsFeed components
+  // Fetch user bookmarks (needed for NewsCard bookmarking functionality)
   const fetchUserBookmarks = useCallback(async () => {
-    if (!userId || loadingUser) {
-      console.log(
-        "Skipping bookmark fetch on SearchPage: userId not available or user still loading."
-      );
+    if (!currentUser || loadingUser) {
       setUserBookmarks([]);
       return;
     }
     try {
       const token = await currentUser.getIdToken();
       const response = await axios.get(
-        `http://localhost:5000/api/news/user/${userId}/bookmarks`,
-        { headers: { Authorization: `Bearer ${token}`, "x-user-id": userId } }
+        `${process.env.REACT_APP_BACKEND_URI}api/news/bookmarks`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       setUserBookmarks(response.data || []);
-      console.log("Fetched user bookmarks in SearchPage:", response.data);
+      console.log("User bookmarks fetched in SearchPage:", response.data);
     } catch (err) {
       console.error(
         "Error fetching user bookmarks in SearchPage:",
@@ -64,46 +82,52 @@ export default function SearchPage() {
       toast.error("Failed to load your bookmarks on search page.");
       setUserBookmarks([]);
     }
-  }, [userId, loadingUser, currentUser]);
+  }, [currentUser, loadingUser]);
 
   useEffect(() => {
-    if (!loadingUser) {
+    if (!loadingUser && currentUser) {
       fetchUserBookmarks();
     }
-  }, [loadingUser, fetchUserBookmarks]);
+  }, [loadingUser, currentUser, fetchUserBookmarks]);
 
-  // Callback for when a bookmark is toggled in NewsCard
   const handleBookmarkToggleSuccess = useCallback(() => {
     console.log(
-      "Bookmark toggle successful on SearchPage. Re-fetching bookmarks..."
+      "Bookmark toggle successful from SearchPage context, refetching bookmarks."
     );
-    fetchUserBookmarks(); // Re-fetch to update the bookmark status
+    fetchUserBookmarks(); // Refetch bookmarks to update UI immediately
   }, [fetchUserBookmarks]);
 
-  // Function to fetch search results based on searchTerm
   const fetchSearchResults = useCallback(async () => {
     if (searchTerm.trim() === "") {
-      setSearchResults([]); // Clear results if search term is empty
-      setSearchError(null); // Clear any previous error
-      setLoadingSearch(false); // Ensure loading is off
-      return; // Don't make API call for empty search
+      setSearchResults([]);
+      setSearchError(null);
+      setLoadingSearch(false);
+      return;
     }
 
     setLoadingSearch(true);
-    setSearchError(null); // Clear previous errors
+    setSearchError(null);
     try {
       const token = currentUser ? await currentUser.getIdToken() : null;
       const headers = token
-        ? { Authorization: `Bearer ${token}`, "x-user-id": userId }
+        ? { Authorization: `Bearer ${token}` } // Removed 'x-user-id' header as firebaseUid is generally sufficient for auth middleware
         : {};
 
       const response = await axios.get(
-        `http://localhost:5000/api/news/search?q=${encodeURIComponent(
-          searchTerm
-        )}`,
+        `${
+          process.env.REACT_APP_BACKEND_URI
+        }api/news/search?q=${encodeURIComponent(searchTerm)}`,
         { headers }
       );
-      setSearchResults(response.data);
+      setSearchResults(response.data.news || []);
+      console.log("Search results fetched:", response.data.news);
+      if (
+        response.data.news &&
+        response.data.news.length === 0 &&
+        searchTerm.trim() !== ""
+      ) {
+        toast.info(`No results found for "${searchTerm}".`);
+      }
     } catch (err) {
       console.error(
         "Error fetching search results:",
@@ -111,28 +135,33 @@ export default function SearchPage() {
       );
       setSearchError("Failed to fetch search results. Please try again.");
       toast.error("Failed to fetch search results.");
-      setSearchResults([]); // Clear results on error
+      setSearchResults([]);
     } finally {
       setLoadingSearch(false);
     }
-  }, [searchTerm, currentUser, userId]); // Dependencies for useCallback
+  }, [searchTerm, currentUser]); // Added currentUser to dependencies for token refresh
 
-  // Effect to trigger search when searchTerm changes (with debounce)
   useEffect(() => {
-    const handler = setTimeout(() => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    debounceTimeoutRef.current = setTimeout(() => {
       fetchSearchResults();
-    }, 500); // Debounce search for 500ms
+    }, 500); // Debounce search by 500ms
 
     return () => {
-      clearTimeout(handler); // Cleanup the timeout if searchTerm changes before 500ms
+      clearTimeout(debounceTimeoutRef.current);
     };
-  }, [searchTerm, fetchSearchResults]); // Re-run effect if searchTerm or fetchSearchResults changes
+  }, [searchTerm, fetchSearchResults]);
 
   const handleLogout = () => {
     signOut(auth)
       .then(() => {
         setCurrentUser(null);
+        setUserBookmarks([]);
         navigate("/");
+        toast.info("Logged out successfully.");
       })
       .catch((error) => {
         console.error("Logout Error:", error);
@@ -150,109 +179,147 @@ export default function SearchPage() {
 
   const handleClearSearch = () => {
     setSearchTerm("");
-    setSearchResults([]); // Clear displayed results
-    setSearchError(null); // Clear any errors
+    setSearchResults([]);
+    setSearchError(null);
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+  };
+
+  // Function to handle tab changes from sidebar (copied from Home.jsx for consistency)
+  const handleTabChange = (tabName) => {
+    if (tabName === "current-affairs") {
+      navigate(`/home`);
+    } else if (tabName === "all" || tabName === "bookmarks") {
+      navigate(`/news/${tabName}`);
+    } else if (
+      ["hindu", "hindustan-times", "toi", "ie", "dna"].includes(tabName)
+    ) {
+      navigate(`/news/${tabName}`);
+    } else if (tabName === "search") {
+      navigate(`/search`);
+    } else if (tabName === "profile") {
+      navigate(`/profile`);
+    } else if (tabName === "settings-help") {
+      navigate(`/settings-help`);
+    }
   };
 
   if (loadingUser) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-900 text-white">
-        Loading user data...
+      <div className="flex justify-center items-center min-h-screen bg-app-bg-primary text-app-text-primary">
+        <FaSpinner className="animate-spin text-app-blue-main text-4xl mr-4" />
+        <p className="text-lg">Loading user data...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex bg-gray-900 min-h-screen">
+    <div className="flex bg-app-bg-primary min-h-screen">
+      {/* Sidebar component */}
       <Sidebar
-        activeTab="search" // Always highlight 'search' tab in sidebar when on this page
-        setActiveTab={() => {}} // No tab changes from search page sidebar
+        activeTab="search" // Keep search active when on this page
+        setActiveTab={handleTabChange} // Pass the navigation handler
         onLogout={handleLogout}
         isSidebarOpen={isSidebarOpen}
-        toggleSidebar={toggleSidebar}
+        toggleSidebar={toggleSidebar} // Pass toggleSidebar to Sidebar for responsive closing
         currentUser={currentUser}
       />
 
+      {/* Main Content Area */}
       <div
-        className={`flex-grow p-6 text-white transition-all duration-300 ease-in-out mt-16 ${
-          isSidebarOpen ? "ml-64" : "ml-0"
-        }`}
+        className={`flex-grow p-6 text-app-text-primary transition-all duration-300 ease-in-out
+                            ${isSidebarOpen ? "md:ml-64" : "md:ml-0"}`}
       >
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-blue-400 flex items-center">
-            <FaSearch className="mr-3" /> Search News
-          </h1>
+        {/* NewsHub Dashboard Header: Copied directly from Home.jsx */}
+        <div className="flex justify-between items-center p-6 bg-app-bg-primary sticky top-0 z-20 shadow-md">
+          <div className="flex items-center">
+            <h1 className="text-3xl font-bold text-app-blue-main">
+              📰 G-PRESS Dashboard
+            </h1>
+          </div>
           <button
             onClick={toggleSidebar}
-            className="p-2 text-white text-2xl rounded-full hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
-            title={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+            className="p-2 text-app-text-primary text-2xl rounded-full hover:bg-app-bg-secondary focus:outline-none focus:ring-2 focus:ring-app-blue-main"
+            aria-label={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+            title={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
           >
             {isSidebarOpen ? <FaTimes /> : <FaBars />}
           </button>
         </div>
-        <p className="text-lg text-gray-300 mb-6">
-          Type your keywords below to search across all news sources and
-          categories.
-        </p>
 
-        {/* Search Bar */}
-        <div className="relative mb-6">
-          <input
-            type="text"
-            placeholder="Search news by keyword, category, or source..."
-            value={searchTerm}
-            onChange={handleSearchChange}
-            className="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          {searchTerm && ( // Show clear button only if searchTerm is not empty
-            <button
-              onClick={handleClearSearch}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xl"
-              aria-label="Clear search"
-              title="Clear search"
-            >
-              <FaTimes />
-            </button>
+        {/* Adjust top margin of content to account for sticky header */}
+        <div className="flex-1 overflow-y-auto p-6 max-w-7xl mx-auto w-full pt-8">
+          {" "}
+          {/* Added pt-8 for spacing below sticky header */}
+          {/* Original Search section - now below the dashboard header */}
+          <h1 className="text-3xl font-bold text-app-blue-main flex items-center mb-6">
+            <FaSearch className="mr-3" /> Search News
+          </h1>
+          <p className="text-lg text-app-text-secondary mb-6">
+            Type your keywords below to search across all news sources and
+            categories.
+          </p>
+          <div className="relative mb-6">
+            <input
+              type="text"
+              placeholder="Search news by keyword, category, or source..."
+              value={searchTerm}
+              onChange={handleSearchChange}
+              className="w-full p-3 pl-10 rounded-lg bg-app-bg-secondary border border-app-gray-border text-app-text-primary placeholder-app-placeholder focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {/* Positioning the search icon inside the input field */}
+            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-app-placeholder" />
+            {searchTerm && (
+              <button
+                onClick={handleClearSearch}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-app-placeholder hover:text-app-text-primary text-xl"
+                aria-label="Clear search"
+                title="Clear search"
+              >
+                <FaTimes />
+              </button>
+            )}
+          </div>
+          {userId ? (
+            loadingSearch ? (
+              <div className="flex justify-center items-center h-40">
+                <FaSpinner className="animate-spin text-app-blue-main text-4xl mr-4" />
+                <p className="ml-4 text-app-blue-main text-lg">
+                  Loading search results...
+                </p>
+              </div>
+            ) : searchError ? (
+              <div className="text-center text-red-500 text-xl pt-10">
+                {searchError}
+              </div>
+            ) : searchTerm.trim() === "" ? (
+              <div className="text-center text-app-text-secondary text-xl pt-10">
+                Start typing to find news articles.
+              </div>
+            ) : searchResults.length === 0 ? (
+              <div className="text-center text-app-text-secondary text-xl pt-10">
+                No articles found matching "{searchTerm}". Try different
+                keywords.
+              </div>
+            ) : (
+              <NewsFeed
+                key={`search-${searchTerm}`}
+                mainActiveTab="search"
+                userId={userId}
+                userBookmarks={userBookmarks}
+                onBookmarkToggleSuccess={handleBookmarkToggleSuccess}
+                searchTerm={searchTerm}
+                currentUser={currentUser}
+                newsData={searchResults}
+              />
+            )
+          ) : (
+            <p className="text-app-text-primary text-center text-xl pt-10">
+              Please log in to use the search functionality.
+            </p>
           )}
         </div>
-
-        {/* Conditional rendering for search results/messages */}
-        {userId ? (
-          loadingSearch ? (
-            <div className="text-center text-blue-400 text-xl pt-10">
-              Loading search results...
-            </div>
-          ) : searchError ? (
-            <div className="text-center text-red-500 text-xl pt-10">
-              {searchError}
-            </div>
-          ) : searchTerm.trim() === "" ? ( // User has not typed anything
-            <div className="text-center text-gray-400 text-xl pt-10">
-              Start typing to find news articles.
-            </div>
-          ) : searchResults.length === 0 ? ( // Search performed, no results
-            <div className="text-center text-gray-400 text-xl pt-10">
-              No articles found matching "{searchTerm}". Try different keywords.
-            </div>
-          ) : (
-            // Search performed, results found
-            <NewsFeed
-              key={searchTerm} // Key for NewsFeed to re-mount/re-render when search term changes
-              mainActiveTab="search" // Indicate this is a search context (for NewsFeed's internal logic)
-              userId={userId}
-              userBookmarks={userBookmarks} // Pass bookmarks for NewsCard status
-              onBookmarkToggleSuccess={handleBookmarkToggleSuccess}
-              searchTerm={searchTerm} // Pass the search term
-              currentUser={currentUser}
-              newsData={searchResults} // Pass the fetched search results here
-            />
-          )
-        ) : (
-          <p className="text-white text-center text-xl pt-10">
-            Please log in to use the search functionality.
-          </p>
-        )}
       </div>
     </div>
   );
