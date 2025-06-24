@@ -66,7 +66,7 @@ export default function NewsCard({
   userId, // This is firebaseUid
   userBookmarks, // This is the array of populated bookmark objects from the backend
   onBookmarkToggleSuccess,
-  currentUser, // Firebase user object
+  currentUser, // Firebase user object - THIS IS KEY FOR AUTHENTICATION
 }) {
   console.log("--- NewsCard Render ---");
   console.log("Article Object received:", news);
@@ -174,9 +174,16 @@ export default function NewsCard({
 
     try {
       const token = currentUser ? await currentUser.getIdToken() : null;
+      // Define headers here to be used by axios
       const headers = {};
       if (token) {
         headers.Authorization = `Bearer ${token}`;
+      } else {
+        // If no token, and it's a protected route, it will fail.
+        // It's good to provide user feedback.
+        toast.error("Authentication token missing. Please re-login.");
+        setIsBookmarking(false);
+        return; // Exit early if no token
       }
 
       // Payload for adding a bookmark (for POST request)
@@ -215,7 +222,7 @@ export default function NewsCard({
 
         const deleteUrl = `${process.env.REACT_APP_BACKEND_URI}api/news/bookmark/${bookmarkToDelete._id}`;
         console.log("Attempting to DELETE bookmark from URL:", deleteUrl);
-        response = await axios.delete(deleteUrl, { headers: headers });
+        response = await axios.delete(deleteUrl, { headers: headers }); // Pass headers here
         // --- END CRITICAL FIX ---
 
         console.log("Backend response for removal:", response.data.message);
@@ -226,7 +233,7 @@ export default function NewsCard({
         response = await axios.post(
           `${process.env.REACT_APP_BACKEND_URI}api/news/bookmark`,
           payload,
-          { headers: headers }
+          { headers: headers } // Pass headers here
         );
         console.log("Backend response for addition:", response.data.message);
         toast.success(response.data.message || "Bookmark added!");
@@ -270,6 +277,10 @@ export default function NewsCard({
           errorMessage = "Invalid article ID. Please try again.";
         } else if (error.response.data && error.response.data.message) {
           errorMessage = error.response.data.message;
+        } else if (error.response.status === 401) {
+          // Added specific handling for 401
+          errorMessage = "Unauthorized: Please log in again.";
+          navigate("/login"); // Redirect to login page
         }
       }
       toast.error(errorMessage);
@@ -284,10 +295,23 @@ export default function NewsCard({
 
     if (isGeneratingQuestions) return;
 
+    // --- START: ADD AUTHENTICATION LOGIC HERE ---
+    if (!currentUser) {
+      toast.error("Please log in to generate questions.");
+      navigate("/login"); // Redirect to login if user is not authenticated
+      return;
+    }
+
     setIsGeneratingQuestions(true);
     setQuestionsError(null);
 
     try {
+      const token = await currentUser.getIdToken(); // Get the Firebase ID token
+      // Define headers with the Authorization token
+      const headers = {
+        Authorization: `Bearer ${token}`,
+      };
+
       // Use 'configKey' type for the URL segment to match backend's sourceConfig keys (lowercase)
       const sourceKeyForURL = formatSourceForBackend(
         currentNewsSource,
@@ -298,7 +322,9 @@ export default function NewsCard({
       console.log(
         `[NewsCard] Attempting to trigger question generation from: ${url}`
       );
-      await axios.get(url);
+      // Pass the headers object to the axios.get request
+      await axios.get(url, { headers: headers });
+      // --- END: ADD AUTHENTICATION LOGIC HERE ---
 
       toast.success("Generating questions... Redirecting to questions page.");
 
@@ -315,13 +341,18 @@ export default function NewsCard({
         "Error triggering question generation:",
         err.response ? err.response.data : err.message
       );
-      setQuestionsError(
+      let errorMessage =
         err.response?.data?.message ||
-          "Failed to generate questions. Please try again."
-      );
-      toast.error(
-        err.response?.data?.message || "Failed to trigger questions generation."
-      );
+        "Failed to generate questions. Please try again.";
+
+      if (err.response && err.response.status === 401) {
+        errorMessage =
+          "Unauthorized: Please log in again to generate questions.";
+        navigate("/login"); // Redirect to login if unauthorized
+      }
+
+      setQuestionsError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsGeneratingQuestions(false);
     }
@@ -440,11 +471,11 @@ export default function NewsCard({
       <button
         onClick={handleGenerateQuestions}
         className={`mt-4 w-full py-2 px-4 rounded-lg font-bold transition-colors duration-200 flex items-center justify-center
-                    ${
-                      isGeneratingQuestions
-                        ? "bg-app-bg-primary text-app-text-secondary cursor-not-allowed"
-                        : "bg-app-blue-main text-white hover:bg-app-blue-light"
-                    }`}
+                     ${
+                       isGeneratingQuestions
+                         ? "bg-app-bg-primary text-app-text-secondary cursor-not-allowed"
+                         : "bg-app-blue-main text-white hover:bg-app-blue-light"
+                     }`}
         disabled={isGeneratingQuestions}
       >
         {isGeneratingQuestions ? (
