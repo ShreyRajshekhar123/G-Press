@@ -108,17 +108,32 @@ export default function SearchPage() {
     setLoadingSearch(true);
     setSearchError(null);
     try {
-      const token = currentUser ? await currentUser.getIdToken() : null;
-      const headers = token
-        ? { Authorization: `Bearer ${token}` } // Removed 'x-user-id' header as firebaseUid is generally sufficient for auth middleware
-        : {};
+      // Ensure currentUser exists before attempting to get a token
+      if (!currentUser) {
+        console.warn(
+          "Attempted to search without a current user. This should not happen if user is redirected."
+        );
+        setLoadingSearch(false);
+        setSearchError("You must be logged in to search."); // More explicit error for UI
+        return;
+      }
 
-      const response = await axios.get(
-        `${
-          process.env.REACT_APP_BACKEND_URI
-        }api/news/search?q=${encodeURIComponent(searchTerm)}`,
-        { headers }
+      const token = await currentUser.getIdToken();
+      // Headers must always include Authorization for a protected route
+      const headers = { Authorization: `Bearer ${token}` };
+
+      // --- ADD THESE LOGS FOR DEBUGGING ---
+      const requestUrl = `${
+        process.env.REACT_APP_BACKEND_URI
+      }api/news/search?q=${encodeURIComponent(searchTerm)}`;
+      console.log("Making search request to URL:", requestUrl);
+      console.log(
+        "With Authorization header:",
+        `Bearer ${token ? "TOKEN_PRESENT" : "TOKEN_MISSING"}`
       );
+      // --- END ADDED LOGS ---
+
+      const response = await axios.get(requestUrl, { headers });
       setSearchResults(response.data.news || []);
       console.log("Search results fetched:", response.data.news);
       if (
@@ -131,7 +146,11 @@ export default function SearchPage() {
     } catch (err) {
       console.error(
         "Error fetching search results:",
-        err.response ? err.response.data : err.message
+        err.response ? err.response.data : err.message,
+        // --- ADD THIS LOG FOR DEBUGGING ---
+        "Status Code:",
+        err.response ? err.response.status : "N/A"
+        // --- END ADDED LOG ---
       );
       setSearchError("Failed to fetch search results. Please try again.");
       toast.error("Failed to fetch search results.");
@@ -229,7 +248,7 @@ export default function SearchPage() {
       {/* Main Content Area */}
       <div
         className={`flex-grow p-6 text-app-text-primary transition-all duration-300 ease-in-out
-                            ${isSidebarOpen ? "md:ml-64" : "md:ml-0"}`}
+                         ${isSidebarOpen ? "md:ml-64" : "md:ml-0"}`}
       >
         {/* NewsHub Dashboard Header: Copied directly from Home.jsx */}
         <div className="flex justify-between items-center p-6 bg-app-bg-primary sticky top-0 z-20 shadow-md">
