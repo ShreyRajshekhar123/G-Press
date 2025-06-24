@@ -10,8 +10,11 @@ import {
   FaLightbulb,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
+// Assuming you have firebase auth instance available globally or can pass it
+// import { auth } from '../firebase'; // <-- You might need this if currentUser is not passed as prop
 
-const QuestionsPage = () => {
+const QuestionsPage = ({ currentUser }) => {
+  // <--- Added currentUser prop here
   const { articleId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -32,42 +35,45 @@ const QuestionsPage = () => {
     if (!source) return "";
     const lowerSource = source.toLowerCase();
 
-    if (type === "configKey") {
-      switch (lowerSource) {
-        case "hindu":
-          return "hindu";
-        case "dna":
-          return "dna";
-        case "hindustan-times":
-          return "hindustan-times";
-        case "toi":
-          return "toi";
-        case "ie":
-          return "ie";
-        default:
-          return lowerSource;
-      }
-    } else if (type === "modelName") {
-      switch (lowerSource) {
-        case "hindu":
-          return "TheHindu";
-        case "dna":
-          return "DNA";
-        case "hindustan-times":
-          return "HindustanTimes";
-        case "toi":
-          return "TimesOfIndia";
-        case "ie":
-          return "IndianExpress";
-        default:
-          return lowerSource
-            .replace(/-/g, "")
-            .split(" ")
-            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-            .join("");
-      }
+    // Reusing the more robust sourceMap from NewsCard for consistency
+    const sourceMap = {
+      "the hindu": { configKey: "hindu", modelName: "TheHindu" },
+      hindu: { configKey: "hindu", modelName: "TheHindu" },
+      "dna india": { configKey: "dna", modelName: "DNA" },
+      dna: { configKey: "dna", modelName: "DNA" },
+      "hindustan times": {
+        configKey: "hindustan-times",
+        modelName: "HindustanTimes",
+      },
+      "hindustan-times": {
+        configKey: "hindustan-times",
+        modelName: "HindustanTimes",
+      },
+      "times of india": { configKey: "toi", modelName: "TimesOfIndia" },
+      toi: { configKey: "toi", modelName: "TimesOfIndia" },
+      "indian express": { configKey: "ie", modelName: "IndianExpress" },
+      ie: { configKey: "ie", modelName: "IndianExpress" },
+    };
+
+    const entry = sourceMap[lowerSource];
+
+    if (entry) {
+      return type === "configKey" ? entry.configKey : entry.modelName;
     }
-    return lowerSource;
+
+    // Fallback logic, same as NewsCard
+    console.warn(
+      `[formatSourceForBackend] No direct map for '${source}'. Falling back.`
+    );
+    if (type === "configKey") {
+      return lowerSource.replace(/ /g, "-");
+    } else if (type === "modelName") {
+      return lowerSource
+        .split(" ")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join("");
+    }
+    return lowerSource; // Default if nothing matches
   };
 
   useEffect(() => {
@@ -75,6 +81,30 @@ const QuestionsPage = () => {
       setLoading(true);
       setError(null);
       setQuestions([]);
+
+      // --- START: ADD AUTHENTICATION LOGIC HERE ---
+      if (!currentUser) {
+        toast.error("Please log in to view questions.");
+        navigate("/login"); // Redirect to login if user is not authenticated
+        setLoading(false);
+        return;
+      }
+
+      let token = null;
+      try {
+        token = await currentUser.getIdToken(); // Get the Firebase ID token
+      } catch (tokenError) {
+        console.error("Error getting Firebase ID token:", tokenError);
+        toast.error("Failed to get authentication token. Please re-login.");
+        navigate("/login");
+        setLoading(false);
+        return;
+      }
+
+      const headers = {
+        Authorization: `Bearer ${token}`,
+      };
+      // --- END: ADD AUTHENTICATION LOGIC HERE ---
 
       const params = new URLSearchParams(location.search);
       const sourceFromUrlRaw = params.get("source");
@@ -102,7 +132,8 @@ const QuestionsPage = () => {
           `[QuestionsPage] Attempting to fetch questions from: ${url}`
         );
 
-        const response = await axios.get(url);
+        // Pass the headers object to the axios.get request
+        const response = await axios.get(url, { headers: headers });
 
         if (
           response.data &&
@@ -124,11 +155,17 @@ const QuestionsPage = () => {
           "Failed to fetch questions:",
           err.response ? err.response.data : err.message
         );
-        setError(
+        let errorMessage =
           err.response?.data?.message ||
-            "Failed to load questions. Please try again."
-        );
-        toast.error(err.response?.data?.message || "Failed to load questions.");
+          "Failed to load questions. Please try again.";
+
+        if (err.response && err.response.status === 401) {
+          errorMessage = "Unauthorized: Please log in again to view questions.";
+          navigate("/login"); // Redirect to login if unauthorized
+        }
+
+        setError(errorMessage);
+        toast.error(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -136,13 +173,14 @@ const QuestionsPage = () => {
 
     fetchQuestions();
 
+    // Reset quiz state on re-fetch (e.g., if articleId changes)
     setCurrentQuestionIndex(0);
     setSelectedAnswer(null);
     setShowCorrectAnswer(false);
     setScore(0);
     setQuizCompleted(false);
     setShowHint(false);
-  }, [articleId, location.search]);
+  }, [articleId, location.search, currentUser, navigate]); // <--- Added currentUser and navigate to dependencies
 
   const handleOptionSelect = (option) => {
     if (selectedAnswer !== null) return;
