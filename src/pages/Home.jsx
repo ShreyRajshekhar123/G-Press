@@ -1,21 +1,23 @@
 // src/pages/Home.jsx
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
-import { auth } from "../firebase";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { auth, signOut } from "../firebase"; // Keep signOut from firebase
 import { useNavigate, useLocation } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import NewsFeed from "../components/NewsFeed";
 import { FaBars, FaTimes } from "react-icons/fa";
 import { toast } from "react-toastify";
+import { useAuth } from "../contexts/AuthContext"; // <--- IMPORT useAuth hook
 
 export default function Home() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [currentUser, setCurrentUser] = useState(null);
-  const [loadingUser, setLoadingUser] = useState(true);
+
+  // Use the useAuth hook to get currentUser and loadingUser from the context
+  const { currentUser, loadingUser } = useAuth(); // <--- UPDATED: Get from context
 
   const [activeTab, setActiveTab] = useState("all");
+  // userId now directly comes from currentUser from context
   const userId = currentUser ? currentUser.uid : null;
   const [userBookmarks, setUserBookmarks] = useState([]);
 
@@ -26,11 +28,12 @@ export default function Home() {
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 768) {
+        // If wider than md, and sidebar is not open, open it (adjust if you want it always open on desktop)
         if (!isSidebarOpen && window.innerWidth < 768) {
           setIsSidebarOpen(true);
         }
       } else {
-        setIsSidebarOpen(false);
+        setIsSidebarOpen(false); // Close on smaller screens
       }
     };
 
@@ -38,48 +41,51 @@ export default function Home() {
     return () => window.removeEventListener("resize", handleResize);
   }, [isSidebarOpen]);
 
-  // Effect to listen for Firebase auth state changes
+  // ⭐ REMOVED THE OLD onAuthStateChanged useEffect BLOCK HERE ⭐
+  // The AuthContext now handles the primary Firebase authentication state listening.
+
+  // New useEffect for syncing user with backend, dependent on currentUser and loadingUser from context
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setCurrentUser(user);
+    const syncUserWithBackend = async () => {
+      if (currentUser && !loadingUser) {
         try {
-          const token = await user.getIdToken();
+          const token = await currentUser.getIdToken();
           await axios.post(
             `${process.env.REACT_APP_BACKEND_URI}api/news/sync-user`,
             {
-              displayName: user.displayName,
-              email: user.email,
-              firebaseUid: user.uid,
+              displayName: currentUser.displayName,
+              email: currentUser.email,
+              firebaseUid: currentUser.uid,
             },
             { headers: { Authorization: `Bearer ${token}` } }
           );
+          console.log(`User ${currentUser.uid} synced with backend.`);
         } catch (syncError) {
           console.error(
-            `Error syncing user ${user.uid} with backend:`,
+            `Error syncing user ${currentUser.uid} with backend:`,
             syncError.response?.data || syncError.message
           );
           toast.error(
             "Failed to sync user data with server. Bookmarking may not work."
           );
         }
-      } else {
-        setCurrentUser(null);
-        if (location.pathname !== "/") {
-          navigate("/");
-        }
+      } else if (!currentUser && !loadingUser && location.pathname !== "/") {
+        // If user is null and not loading, and not already on login, navigate to login
+        navigate("/");
       }
-      setLoadingUser(false);
-    });
-    return () => unsubscribe();
-  }, [navigate, location.pathname]);
+    };
+
+    // Only run sync if currentUser or loadingUser state changes, and once loading is complete
+    if (!loadingUser) {
+      syncUserWithBackend();
+    }
+  }, [currentUser, loadingUser, navigate, location.pathname]); // Depend on context values
 
   // Effect to set active tab from URL on load or path change
   useEffect(() => {
     const pathSegments = location.pathname.split("/");
     const lastSegment = pathSegments[pathSegments.length - 1];
 
-    // This array now only needs news-related active tabs
     const newsRelatedTabs = [
       "all",
       "current-affairs",
@@ -92,18 +98,18 @@ export default function Home() {
       "search",
     ];
 
-    // Ensure activeTab is correctly set for NewsFeed or default
     if (newsRelatedTabs.includes(lastSegment)) {
       setActiveTab(lastSegment);
     } else if (lastSegment === "home") {
-      setActiveTab("current-affairs"); // Or your preferred default for /home
+      setActiveTab("current-affairs");
     } else {
-      setActiveTab("all"); // Fallback for other non-news paths if needed
+      setActiveTab("all");
     }
   }, [location.pathname]);
 
   // Fetch user bookmarks
   const fetchUserBookmarks = useCallback(async () => {
+    // ⭐ UPDATED: Check currentUser and loadingUser from context
     if (!currentUser || loadingUser) {
       setUserBookmarks([]);
       return;
@@ -123,9 +129,10 @@ export default function Home() {
       toast.error("Failed to load your bookmarks.");
       setUserBookmarks([]);
     }
-  }, [currentUser, loadingUser]);
+  }, [currentUser, loadingUser]); // Depend on currentUser and loadingUser from context
 
   useEffect(() => {
+    // ⭐ Only fetch bookmarks once loadingUser is false AND currentUser is available
     if (!loadingUser && currentUser) {
       fetchUserBookmarks();
     }
@@ -138,7 +145,7 @@ export default function Home() {
   const handleLogout = () => {
     signOut(auth)
       .then(() => {
-        setCurrentUser(null);
+        // AuthContext's listener will now handle setting currentUser to null
         setUserBookmarks([]);
         navigate("/");
         toast.info("Logged out successfully.");
@@ -157,7 +164,6 @@ export default function Home() {
 
   const handleTabChange = (tabName) => {
     setActiveTab(tabName);
-    // Navigate based on the tabName
     if (tabName === "current-affairs") {
       navigate(`/home`);
     } else if (tabName === "all" || tabName === "bookmarks") {
@@ -167,25 +173,24 @@ export default function Home() {
     ) {
       navigate(`/news/${tabName}`);
     } else if (tabName === "search") {
-      navigate(`/search`); // Navigate to /search directly if it's a separate page
+      navigate(`/search`);
     } else if (tabName === "profile") {
-      navigate(`/profile`); // Navigate to /profile directly
+      navigate(`/profile`);
     } else if (tabName === "settings-help") {
-      navigate(`/settings-help`); // Navigate to /settings-help directly
+      navigate(`/settings-help`);
     }
   };
 
-  if (loadingUser) {
-    return (
-      // Updated loading screen background and text
-      <div className="flex justify-center items-center min-h-screen bg-app-bg-primary text-app-text-primary text-2xl">
-        Loading user data...
-      </div>
-    );
-  }
+  // No longer need this loadingUser check here, as AuthProvider handles it
+  // if (loadingUser) {
+  //   return (
+  //     <div className="flex justify-center items-center min-h-screen bg-app-bg-primary text-app-text-primary text-2xl">
+  //       Loading user data...
+  //     </div>
+  //   );
+  // }
 
   return (
-    // Updated main container background
     <div className="flex min-h-screen bg-app-bg-primary">
       {/* Sidebar component */}
       <Sidebar
@@ -193,7 +198,7 @@ export default function Home() {
         setActiveTab={handleTabChange}
         onLogout={handleLogout}
         isSidebarOpen={isSidebarOpen}
-        currentUser={currentUser}
+        currentUser={currentUser} // Continue passing currentUser to Sidebar if it needs it
       />
 
       {/* Main Content Area */}
@@ -202,7 +207,6 @@ export default function Home() {
                             ${isSidebarOpen ? "md:ml-64" : "md:ml-0"}`}
       >
         {/* NewsHub Dashboard Header: sticky at the top of the main content area */}
-        {/* Updated header background and title color */}
         <div className="flex justify-between items-center p-6 bg-app-bg-primary sticky top-0 z-20 shadow-md">
           <div className="flex items-center">
             <h1 className="text-3xl font-bold text-app-blue-main">
@@ -211,7 +215,6 @@ export default function Home() {
           </div>
           <button
             onClick={toggleSidebar}
-            // Updated button text and hover/focus colors
             className="p-2 text-app-text-primary text-2xl rounded-full hover:bg-app-bg-secondary focus:outline-none focus:ring-2 focus:ring-app-blue-main"
             aria-label={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
             title={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
@@ -222,24 +225,22 @@ export default function Home() {
 
         {/* Scrollable Content below the header */}
         <div className="flex-1 overflow-y-auto p-6 max-w-7xl mx-auto w-full">
-          {/* Updated paragraph text color */}
           <p className="text-lg text-app-text-secondary mb-6">
             👋 Welcome
             {currentUser?.displayName ? `, ${currentUser.displayName}` : ""}!
             Select a navigation item from the sidebar or a news source tab.
           </p>
 
-          {/* News Source Tabs (always shown in Home, adjust if needed) */}
           <div className="flex flex-wrap gap-2 mb-6 overflow-x-auto pb-2">
             {["hindu", "hindustan-times", "toi", "ie", "dna"].map((source) => (
               <button
                 key={source}
                 className={`py-2 px-4 rounded-lg text-sm font-medium transition-colors duration-200 whitespace-nowrap
-                                        ${
-                                          activeTab === source
-                                            ? "bg-app-blue-main text-app-text-primary" // Active state
-                                            : "bg-app-bg-secondary text-app-text-secondary hover:bg-app-bg-secondary" // Inactive state
-                                        }`}
+                                    ${
+                                      activeTab === source
+                                        ? "bg-app-blue-main text-app-text-primary"
+                                        : "bg-app-bg-secondary text-app-text-secondary hover:bg-app-bg-secondary"
+                                    }`}
                 onClick={() => handleTabChange(source)}
               >
                 {source
@@ -255,24 +256,15 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Only render NewsFeed in Home.jsx */}
-          {userId ? (
-            <NewsFeed
-              key={activeTab}
-              mainActiveTab={activeTab}
-              userId={userId}
-              userBookmarks={userBookmarks}
-              onBookmarkToggleSuccess={handleBookmarkToggleSuccess}
-              searchTerm={""}
-              currentUser={currentUser}
-              newsData={activeTab === "bookmarks" ? userBookmarks : undefined}
-            />
-          ) : (
-            // Updated text color
-            <p className="text-app-text-primary text-center text-xl pt-10">
-              Please log in to view personalized news and bookmarks.
-            </p>
-          )}
+          <NewsFeed
+            key={activeTab}
+            mainActiveTab={activeTab}
+            userId={userId}
+            userBookmarks={userBookmarks}
+            onBookmarkToggleSuccess={handleBookmarkToggleSuccess}
+            currentUser={currentUser} // Continue passing currentUser to NewsFeed if it needs it
+            newsData={activeTab === "bookmarks" ? userBookmarks : undefined}
+          />
         </div>
       </div>
     </div>

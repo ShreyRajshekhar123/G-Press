@@ -10,11 +10,13 @@ import {
   FaLightbulb,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
-// Assuming you have firebase auth instance available globally or can pass it
-// import { auth } from '../firebase'; // <-- You might need this if currentUser is not passed as prop
+import { useAuth } from "../contexts/AuthContext"; // <--- IMPORT useAuth hook
 
-const QuestionsPage = ({ currentUser }) => {
-  // <--- Added currentUser prop here
+// ⭐ REMOVED currentUser prop from here, it will be consumed from context
+const QuestionsPage = () => {
+  // ⭐ UPDATED: Get currentUser and loadingUser from context
+  const { currentUser, loadingUser } = useAuth();
+
   const { articleId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -35,7 +37,6 @@ const QuestionsPage = ({ currentUser }) => {
     if (!source) return "";
     const lowerSource = source.toLowerCase();
 
-    // Reusing the more robust sourceMap from NewsCard for consistency
     const sourceMap = {
       "the hindu": { configKey: "hindu", modelName: "TheHindu" },
       hindu: { configKey: "hindu", modelName: "TheHindu" },
@@ -61,7 +62,6 @@ const QuestionsPage = ({ currentUser }) => {
       return type === "configKey" ? entry.configKey : entry.modelName;
     }
 
-    // Fallback logic, same as NewsCard
     console.warn(
       `[formatSourceForBackend] No direct map for '${source}'. Falling back.`
     );
@@ -73,7 +73,7 @@ const QuestionsPage = ({ currentUser }) => {
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join("");
     }
-    return lowerSource; // Default if nothing matches
+    return lowerSource;
   };
 
   useEffect(() => {
@@ -82,17 +82,24 @@ const QuestionsPage = ({ currentUser }) => {
       setError(null);
       setQuestions([]);
 
-      // --- START: ADD AUTHENTICATION LOGIC HERE ---
+      // ⭐ AUTHENTICATION LOGIC: Check loadingUser first, then currentUser ⭐
+      // If Firebase auth state is still loading, return and let AuthProvider handle the UI
+      if (loadingUser) {
+        setLoading(true); // Keep loading state true while waiting
+        return;
+      }
+
+      // If loading is complete and no user is found, redirect to login
       if (!currentUser) {
         toast.error("Please log in to view questions.");
-        navigate("/login"); // Redirect to login if user is not authenticated
+        navigate("/login");
         setLoading(false);
         return;
       }
 
       let token = null;
       try {
-        token = await currentUser.getIdToken(); // Get the Firebase ID token
+        token = await currentUser.getIdToken();
       } catch (tokenError) {
         console.error("Error getting Firebase ID token:", tokenError);
         toast.error("Failed to get authentication token. Please re-login.");
@@ -104,7 +111,7 @@ const QuestionsPage = ({ currentUser }) => {
       const headers = {
         Authorization: `Bearer ${token}`,
       };
-      // --- END: ADD AUTHENTICATION LOGIC HERE ---
+      // --- END AUTHENTICATION LOGIC ---
 
       const params = new URLSearchParams(location.search);
       const sourceFromUrlRaw = params.get("source");
@@ -132,7 +139,6 @@ const QuestionsPage = ({ currentUser }) => {
           `[QuestionsPage] Attempting to fetch questions from: ${url}`
         );
 
-        // Pass the headers object to the axios.get request
         const response = await axios.get(url, { headers: headers });
 
         if (
@@ -161,7 +167,7 @@ const QuestionsPage = ({ currentUser }) => {
 
         if (err.response && err.response.status === 401) {
           errorMessage = "Unauthorized: Please log in again to view questions.";
-          navigate("/login"); // Redirect to login if unauthorized
+          navigate("/login");
         }
 
         setError(errorMessage);
@@ -180,7 +186,7 @@ const QuestionsPage = ({ currentUser }) => {
     setScore(0);
     setQuizCompleted(false);
     setShowHint(false);
-  }, [articleId, location.search, currentUser, navigate]); // <--- Added currentUser and navigate to dependencies
+  }, [articleId, location.search, currentUser, navigate, loadingUser]); // ⭐ Added loadingUser to dependencies
 
   const handleOptionSelect = (option) => {
     if (selectedAnswer !== null) return;
@@ -380,7 +386,7 @@ const QuestionsPage = ({ currentUser }) => {
                   className={`py-3 px-8 rounded-lg font-bold text-xl transition-colors duration-200
                                 ${
                                   selectedAnswer === null
-                                    ? "bg-blue-300 text-blue-800 cursor-not-allowed" // These specific disabled colors might need hardcoding or more variables
+                                    ? "bg-blue-300 text-blue-800 cursor-not-allowed"
                                     : "bg-app-blue-main text-white hover:bg-blue-700"
                                 }`}
                 >
