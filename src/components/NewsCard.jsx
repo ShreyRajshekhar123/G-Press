@@ -69,6 +69,7 @@ export default function NewsCard({
   currentUser, // Firebase user object - THIS IS KEY FOR AUTHENTICATION
 }) {
   console.log("--- NewsCard Render ---");
+  console.log("NewsCard received currentUser:", currentUser); // DEBUG: Check currentUser on render
   console.log("Article Object received:", news);
   console.log("Article Title:", news ? news.title : "N/A");
   console.log(
@@ -293,10 +294,13 @@ export default function NewsCard({
     event.stopPropagation();
     event.preventDefault();
 
+    console.log("handleGenerateQuestions clicked!"); // DEBUG: Log when button is clicked
+    console.log("currentUser at click time:", currentUser); // DEBUG: Check currentUser at the moment of click
+
     if (isGeneratingQuestions) return;
 
-    // --- START: ADD AUTHENTICATION LOGIC HERE ---
     if (!currentUser) {
+      console.log("currentUser is NULL, showing error toast."); // DEBUG: Log if currentUser is null
       toast.error("Please log in to generate questions.");
       navigate("/login"); // Redirect to login if user is not authenticated
       return;
@@ -307,6 +311,7 @@ export default function NewsCard({
 
     try {
       const token = await currentUser.getIdToken(); // Get the Firebase ID token
+      console.log("Successfully got Firebase ID Token. Length:", token.length); // DEBUG: Log token existence
       // Define headers with the Authorization token
       const headers = {
         Authorization: `Bearer ${token}`,
@@ -322,9 +327,11 @@ export default function NewsCard({
       console.log(
         `[NewsCard] Attempting to trigger question generation from: ${url}`
       );
-      // Pass the headers object to the axios.get request
+      console.log("Request Headers being sent:", headers); // DEBUG: Log headers being sent to API
+
       await axios.get(url, { headers: headers });
-      // --- END: ADD AUTHENTICATION LOGIC HERE ---
+
+      console.log("API call for question generation successful!"); // DEBUG: Log success
 
       toast.success("Generating questions... Redirecting to questions page.");
 
@@ -338,9 +345,16 @@ export default function NewsCard({
       );
     } catch (err) {
       console.error(
-        "Error triggering question generation:",
-        err.response ? err.response.data : err.message
+        "Error triggering question generation (full object):",
+        err // DEBUG: Log the full error object
       );
+      console.error(
+        "Error response data:",
+        err.response?.data,
+        "Status:",
+        err.response?.status
+      ); // DEBUG: Log response details
+
       let errorMessage =
         err.response?.data?.message ||
         "Failed to generate questions. Please try again.";
@@ -393,8 +407,8 @@ export default function NewsCard({
   return (
     <div
       className="bg-app-bg-secondary border border-app-gray-border rounded-xl p-4 shadow-md transition-all duration-300 ease-in-out
-               relative z-0 hover:z-10 hover:scale-105 hover:shadow-2xl
-               flex flex-col justify-between"
+                 relative z-0 hover:z-10 hover:scale-105 hover:shadow-2xl
+                 flex flex-col justify-between"
     >
       <div>
         <a href={displayNews.link} target="_blank" rel="noopener noreferrer">
@@ -471,11 +485,11 @@ export default function NewsCard({
       <button
         onClick={handleGenerateQuestions}
         className={`mt-4 w-full py-2 px-4 rounded-lg font-bold transition-colors duration-200 flex items-center justify-center
-                     ${
-                       isGeneratingQuestions
-                         ? "bg-app-bg-primary text-app-text-secondary cursor-not-allowed"
-                         : "bg-app-blue-main text-white hover:bg-app-blue-light"
-                     }`}
+                    ${
+                      isGeneratingQuestions
+                        ? "bg-app-bg-primary text-app-text-secondary cursor-not-allowed"
+                        : "bg-app-blue-main text-white hover:bg-app-blue-light"
+                    }`}
         disabled={isGeneratingQuestions}
       >
         {isGeneratingQuestions ? (
